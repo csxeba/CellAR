@@ -1,22 +1,26 @@
 """Cell division detection with Artificial Neural Networks"""
+import pickle
+import gzip
+
+import matplotlib.pyplot as plt
 import numpy as np
 import theano
 import theano.tensor as T
 
-from csxnet.datamodel import CData
+from csxnet.datamodel import RData, CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
 
 ltpath = "/data/Prog/data/learning_tables/"
+theano.config.exception_verbosity = "high"
 
 
 class FFNetTheano:
-    def __init__(self, data, eta, lmbd):
+    def __init__(self, data: CData, eta, lmbd):
         """Simple Feed Forward architecture implemented with Theano"""
         self.data = data
-        self.data.flatten()
 
-        inputs = 3600
+        inputs = data.data.shape[1]
         hiddens = 1000
 
         l2term = 1 - ((eta * lmbd) / data.N)
@@ -24,9 +28,9 @@ class FFNetTheano:
         outputs = len(data.categories)
 
         X = T.matrix("X")  # Batch of inputs
-        Y = T.matrix("Y")  # Batch of targets
+        Y = T.vector("Y", dtype="int64")  # Batch of targets
 
-        m = T.scalar()  # Input batch size
+        m = T.scalar(dtype="int64")  # Input batch size
 
         # Define the weights and biases of the layers
         W1 = theano.shared(np.random.randn(inputs, hiddens) / np.sqrt(inputs))
@@ -48,36 +52,44 @@ class FFNetTheano:
         self.predict = theano.function((X, Y), outputs=(xent, prediction))
 
     def train(self, epochs, batch_size):
-        for epoch in range(epochs):
+        print("Start training")
+        for epoch in range(1, epochs+1):
             for no, batch in enumerate(self.data.batchgen(batch_size)):
-                self._fit(batch[0], batch[1], batch_size)
-                if no % 10 == 0 and no != 0:
-                    cost, acc = self.evaluate()
-                    print("Batch", no)
-                    print("Cost:", cost)
-                    print("AccT:", acc)
-            print("---- Epoch {}/{} Done! ----".format(epoch, epochs))
+                m = batch[0].shape[0]
+                questions, targets = batch[0], np.amax(batch[1], axis=1).astype("int64")
+                self._fit(questions, targets, m)
+            if epoch % 10 == 0:
+                costt, acct = self.evaluate("testing")
+                costl, accl = self.evaluate("learning")
+                print("---- Epoch {}/{} Done! ----".format(epoch, epochs))
+                print("Cost:", (costt + costl) / 2)
+                print("AccT:", acct)
+                print("AccL:", accl)
 
     def evaluate(self, on="testing"):
-        cost, answers = self.predict(self.data.table(on))
-        rate = np.sum(np.equal(answers, self.data.tindeps))
+        m = self.data.n_testing
+        deps = {"t": self.data.testing, "l": self.data.learning}[on[0]][:m]
+        indeps = {"t": self.data.tindeps, "l": self.data.lindeps}[on[0]][:m]
+        cost, answers = self.predict(deps, indeps)
+        rate = np.mean(np.equal(answers, indeps))
         return cost, rate
 
 
 class FFNetThinkster(Network):
     def __init__(self, data, eta, lmbd):
         Network.__init__(self, data, eta, lmbd, MSE)
-        self.add_fc(1000)
+        self.add_fc(300)
         self.finalize_architecture()
 
     def train(self, epochs, batch_size):
         scores = [list(), list()]
-        for epoch in range(epochs):
+        for epoch in range(1, epochs+1):
             self.learn(batch_size=batch_size)
             scores[0].append(self.evaluate())
             scores[1].append(self.evaluate("learning"))
-            print("Epoch {}".format(epoch))
-            print("Acc:", scores[0][-1], scores[1][-1])
+            if epoch % 10 == 0:
+                print("Epoch {}".format(epoch))
+                print("Acc:", scores[0][-1], scores[1][-1])
         return scores
 
 
@@ -101,26 +113,26 @@ class CNNetThinkster(Network):
 
 
 if __name__ == '__main__':
-    import pickle, gzip
-    import matplotlib.pyplot as plt
 
-    f = gzip.open(ltpath + "gorlt.pkl.gz", "rb")
+    f = gzip.open(ltpath + "gorctrlt.pkl.gz", "rb")
     questions, targets = pickle.load(f)
+    questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
     f.close()
 
     np.divide(questions, 255, out=questions)
-    lt = questions, targets
+    np.equal(targets, True, targets)
+    lt = questions.astype(float), targets.astype(int)
 
-    myData = CData(lt, cross_val=0.1, pca=0)
-    net = FFNetThinkster(myData, eta=0.5, lmbd=2.0)
+    myData = CData(lt, cross_val=0.2, header=None, pca=0)
+    net = FFNetTheano(myData, eta=1.0, lmbd=0.0)
     print("Initial test:", net.evaluate())
-    score = net.train(10, 50)
+    net.train(100, 50)
 
-    X = np.arange(len(score[0]))
-    plt.plot(X, score[0], "b", label="T")
-    plt.plot(X, score[1], "r", label="L")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-               ncol=2, mode="expand", borderaxespad=0.)
-    plt.show()
+    # X = np.arange(len(score[0]))
+    # plt.plot(X, score[0], "b", label="T")
+    # plt.plot(X, score[1], "r", label="L")
+    # plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+    #            ncol=2, mode="expand", borderaxespad=0.)
+    # plt.show()
 
 
