@@ -10,6 +10,7 @@ import theano.tensor as T
 from csxnet.datamodel import RData, CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
+from csxnet.thNets.thANN import ConvNet
 
 ltpath = "/data/Prog/data/learning_tables/"
 theano.config.exception_verbosity = "high"
@@ -21,7 +22,7 @@ class FFNetTheano:
         self.data = data
 
         inputs = data.data.shape[1]
-        hiddens = 1000
+        hiddens = 100
 
         l2term = 1 - ((eta * lmbd) / data.N)
 
@@ -58,7 +59,7 @@ class FFNetTheano:
                 m = batch[0].shape[0]
                 questions, targets = batch[0], np.amax(batch[1], axis=1).astype("int64")
                 self._fit(questions, targets, m)
-            if epoch % 10 == 0:
+            if epoch % 1 == 0:
                 costt, acct = self.evaluate("testing")
                 costl, accl = self.evaluate("learning")
                 print("---- Epoch {}/{} Done! ----".format(epoch, epochs))
@@ -75,10 +76,19 @@ class FFNetTheano:
         return cost, rate
 
 
+class CNNetTheano(ConvNet):
+    def __init__(self, data, eta, lmbd):
+        nfilters = 1
+        cfshape = (5, 5)
+        pool = 2
+        hidden_fc = 120
+        ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
+
+
 class FFNetThinkster(Network):
     def __init__(self, data, eta, lmbd):
-        Network.__init__(self, data, eta, lmbd, MSE)
-        self.add_fc(300)
+        Network.__init__(self, data, eta, lmbd, Xent)
+        self.add_fc(120)
         self.finalize_architecture()
 
     def train(self, epochs, batch_size):
@@ -87,8 +97,8 @@ class FFNetThinkster(Network):
             self.learn(batch_size=batch_size)
             scores[0].append(self.evaluate())
             scores[1].append(self.evaluate("learning"))
-            if epoch % 10 == 0:
-                print("Epoch {}".format(epoch))
+            if epoch % 1 == 0:
+                print("Epoch {}, Err: {}".format(epoch, self.error))
                 print("Acc:", scores[0][-1], scores[1][-1])
         return scores
 
@@ -123,16 +133,14 @@ if __name__ == '__main__':
     np.equal(targets, True, targets)
     lt = questions.astype(float), targets.astype(int)
 
-    myData = CData(lt, cross_val=0.2, header=None, pca=0)
-    net = FFNetTheano(myData, eta=1.0, lmbd=0.0)
+    myData = CData(lt, cross_val=0.2, header=None, pca=700)
+    net = FFNetThinkster(myData, eta=0.1, lmbd=2.0)
     print("Initial test:", net.evaluate())
-    net.train(100, 50)
+    score = net.train(100, 20)
 
-    # X = np.arange(len(score[0]))
-    # plt.plot(X, score[0], "b", label="T")
-    # plt.plot(X, score[1], "r", label="L")
-    # plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-    #            ncol=2, mode="expand", borderaxespad=0.)
-    # plt.show()
-
-
+    X = np.arange(len(score[0]))
+    plt.plot(X, score[0], "b", label="T")
+    plt.plot(X, score[1], "r", label="L")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+               ncol=2, mode="expand", borderaxespad=0.)
+    plt.show()
