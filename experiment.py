@@ -29,7 +29,7 @@ class FFNetTheano:
         outputs = len(data.categories)
 
         X = T.matrix("X")  # Batch of inputs
-        Y = T.vector("Y", dtype="int64")  # Batch of targets
+        Y = T.matrix("Y", dtype="int64")  # Batch of targets !! in vector form !!
 
         m = T.scalar(dtype="int64")  # Input batch size
 
@@ -50,7 +50,7 @@ class FFNetTheano:
         update_W2 = (l2term * W2) - ((eta / m) * theano.grad(xent, W2))
 
         self._fit = theano.function((X, Y, m), updates=((W1, update_W1), (W2, update_W2)))
-        self.predict = theano.function((X, Y), outputs=(xent, prediction))
+        self.predict = theano.function((X), outputs=(prediction,))
 
     def train(self, epochs, batch_size):
         print("Start training")
@@ -71,9 +71,9 @@ class FFNetTheano:
         m = self.data.n_testing
         deps = {"t": self.data.testing, "l": self.data.learning}[on[0]][:m]
         indeps = {"t": self.data.tindeps, "l": self.data.lindeps}[on[0]][:m]
-        cost, answers = self.predict(deps, indeps)
-        rate = np.mean(np.equal(answers, indeps))
-        return cost, rate
+        preds = self.predict(deps)
+        rate = np.mean(np.equal(preds, indeps))
+        return rate
 
 
 class CNNetTheano(ConvNet):
@@ -84,11 +84,25 @@ class CNNetTheano(ConvNet):
         hidden_fc = 120
         ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
 
+    def train(self, epochs, batch_size):
+        scores = [list(), list()]
+        for epoch in range(epochs):
+            self.learn(batch_size)
+            tcost, tscore = self.evaluate("testing")
+            lcost, lscore = self.evaluate("learning")
+            scores[0].append(tscore)
+            scores[1].append(lscore)
+            print("Epoch {} done! Last cost: {}".format(epoch, lcost))
+            print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
+        return scores
+
 
 class FFNetThinkster(Network):
     def __init__(self, data, eta, lmbd):
-        Network.__init__(self, data, eta, lmbd, Xent)
-        self.add_fc(120)
+        Network.__init__(self, data, eta, lmbd, MSE)
+        self.add_fc(250)
+        self.add_fc(100)
+        self.add_fc(100)
         self.finalize_architecture()
 
     def train(self, epochs, batch_size):
@@ -124,7 +138,7 @@ class CNNetThinkster(Network):
 
 if __name__ == '__main__':
 
-    f = gzip.open(ltpath + "gorctrlt.pkl.gz", "rb")
+    f = gzip.open(ltpath + "bigctrlt.pkl.gz", "rb")
     questions, targets = pickle.load(f)
     questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
     f.close()
@@ -133,10 +147,12 @@ if __name__ == '__main__':
     np.equal(targets, True, targets)
     lt = questions.astype(float), targets.astype(int)
 
-    myData = CData(lt, cross_val=0.2, header=None, pca=700)
-    net = FFNetThinkster(myData, eta=0.1, lmbd=2.0)
-    print("Initial test:", net.evaluate())
-    score = net.train(100, 20)
+    myData = CData(lt, cross_val=0.3, header=None, pca=1000)
+    # myData.data = myData._datacopy = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
+    myData.standardize()
+    net = FFNetThinkster(myData, eta=1.5, lmbd=0.1)
+    # print("Initial test:", net.evaluate())
+    score = net.train(100, 100)
 
     X = np.arange(len(score[0]))
     plt.plot(X, score[0], "b", label="T")
