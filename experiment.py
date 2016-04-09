@@ -3,13 +3,13 @@ import pickle
 import gzip
 
 import matplotlib.pyplot as plt
-import numpy as np
 import theano
 import theano.tensor as T
 
 from csxnet.datamodel import RData, CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
+from csxnet.brainforge.Utility.activations import *
 from csxnet.thNets.thANN import ConvNet
 
 ltpath = "/data/Prog/data/learning_tables/"
@@ -81,12 +81,12 @@ class CNNetTheano(ConvNet):
         nfilters = 1
         cfshape = (5, 5)
         pool = 2
-        hidden_fc = 120
+        hidden_fc = 60
         ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
 
     def train(self, epochs, batch_size):
         scores = [list(), list()]
-        for epoch in range(epochs):
+        for epoch in range(1, epochs+1):
             self.learn(batch_size)
             tcost, tscore = self.evaluate("testing")
             lcost, lscore = self.evaluate("learning")
@@ -94,15 +94,21 @@ class CNNetTheano(ConvNet):
             scores[1].append(lscore)
             print("Epoch {} done! Last cost: {}".format(epoch, lcost))
             print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
+            if epoch % 10 == 0 and eta_decay > 0:
+                self.eta -= eta_decay
+                print("ETA DECAYED TO", self.eta)
+
         return scores
 
 
 class FFNetThinkster(Network):
     def __init__(self, data, eta, lmbd):
-        Network.__init__(self, data, eta, lmbd, MSE)
-        self.add_fc(250)
-        self.add_fc(100)
-        self.add_fc(100)
+        Network.__init__(self, data, eta, lmbd, cost)
+        for h in hiddens:
+            if not drop and h:
+                self.add_fc(h, activation=act_fn_H)
+            if drop and h:
+                self.add_drop(h, drop, activation=act_fn_H)
         self.finalize_architecture()
 
     def train(self, epochs, batch_size):
@@ -138,25 +144,69 @@ class CNNetThinkster(Network):
 
 if __name__ == '__main__':
 
-    f = gzip.open(ltpath + "bigctrlt.pkl.gz", "rb")
+    learning_table_to_use = "bigctrlt.pkl.gz"
+
+    crossval = 0.2
+    pca = 0
+    standardize = True
+    reshape = True
+    simplify_to_binary = True
+    hiddens = (250, 100, 100)
+    drop = 0
+    act_fn_H = Sigmoid
+
+    cost = MSE
+    aepochs = 0
+    epochs = 100
+    batch_size = 100
+    eta = 1.25
+    eta_decay = 0.0
+    lmbd = 0.0
+    netclass = CNNetTheano
+
+    # Wrap the data and build the net from the supplied hyperparameters
+
+    f = gzip.open(ltpath + learning_table_to_use, "rb")
     questions, targets = pickle.load(f)
     questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
     f.close()
 
-    np.divide(questions, 255, out=questions)
-    np.equal(targets, True, targets)
+    if simplify_to_binary:
+        np.equal(targets, True, targets)
+
     lt = questions.astype(float), targets.astype(int)
 
-    myData = CData(lt, cross_val=0.3, header=None, pca=1000)
-    # myData.data = myData._datacopy = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
-    myData.standardize()
-    net = FFNetThinkster(myData, eta=1.5, lmbd=0.1)
-    # print("Initial test:", net.evaluate())
-    score = net.train(100, 100)
+    myData = CData(lt, cross_val=crossval, header=None, pca=pca)
+    if reshape:
+        myData.data = myData._datacopy = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
+    if standardize or not pca:
+        myData.standardize()
+    net = netclass(myData, eta=eta, lmbd=lmbd)
 
-    X = np.arange(len(score[0]))
-    plt.plot(X, score[0], "b", label="T")
-    plt.plot(X, score[1], "r", label="L")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-               ncol=2, mode="expand", borderaxespad=0.)
-    plt.show()
+    print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
+
+    for aepoch in range(aepochs):
+        net.autoencode(100)
+        print("AE epoch {}. Cost' = {}".format(aepoch, net.error))
+
+    score = net.train(epochs, batch_size)
+
+    while 1:
+        X = np.arange(len(score[0]))
+        plt.plot(X, score[0], "b", label="T")
+        plt.plot(X, score[1], "r", label="L")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+                   ncol=2, mode="expand", borderaxespad=0.)
+        plt.show()
+
+        more = int(input("----------\nMore? How much epochs?\n> "))
+
+        if more < 1:
+            break
+
+        ns = net.train(int(more), 100)
+        score[0].extend(ns[0])
+        score[1].extend(ns[1])
+
+
+

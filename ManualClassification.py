@@ -4,13 +4,14 @@ import sqlite3 as sql
 from PIL import Image, ImageTk
 import os
 
-pixpath = "./tiles/"
-dbpath = "./db/"
+pixpath = "/data/Prog/data/raw/tiles/"
+dbpath = "/data/Prog/Diploma/GorApps/"
+dbname = "sum.db"
 
 
 class DB:
     def __init__(self, master):
-        self.conn = sql.connect(dbpath + "data.db")
+        self.conn = sql.connect(dbpath + dbname)
         self.cur = self.conn.cursor()
         self.master = master
         self.create = "CREATE TABLE lessons " + \
@@ -49,8 +50,9 @@ class DB:
         try:
             self.cur.execute(self.create)
         except sql.OperationalError:
-            self.reset()
-            self.cur.execute(self.create)
+            # self.reset()
+            # self.cur.execute(self.create)
+            pass
 
     def _fill_db(self):
         flz = sorted(os.listdir(pixpath))
@@ -309,12 +311,12 @@ a numerikus billentyűzettel is. Választást jóváhagyni az Enterrel és az \
 előre gombbal is lehet, visszalépni pedig a visszagombbal."""
 
 if __name__ == '__main__':
-    state = sanity_check()
-
-    if state is "broken":
-        brokenstate()
-    elif state is "fresh":
-        freshen()
+    # state = sanity_check()
+    #
+    # if state is "broken":
+    #     brokenstate()
+    # elif state is "fresh":
+    #     freshen()
 
     app = App()
     app.mainloop()
