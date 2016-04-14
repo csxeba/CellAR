@@ -142,7 +142,7 @@ class CNNetThinkster(Network):
             print("Acc:", self.evaluate(), self.evaluate("learning"))
 
 
-learning_table_to_use = "cssmall.pkl.gz"
+learning_table_to_use = "cssmallctr.pkl.gz"
 
 crossval = 0.1
 pca = 0
@@ -183,7 +183,7 @@ def main():
         myData.standardize()
     net = netclass(myData, eta=eta, lmbd=lmbd)
 
-    print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
+    print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
 
     score = net.train(epochs, batch_size)
 
