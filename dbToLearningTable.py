@@ -7,13 +7,13 @@ from PIL import Image
 
 
 dbspath = "/data/Prog/Diploma/ClassByCsa/"
-slicepath = "/data/Prog/data/raw/convd/"
+slicepath = "/data/Prog/data/raw/tiles/"
 
 
 def fetchrecs(db):
     conn = sql.connect(dbspath + db)
     c = conn.cursor()
-    c.execute("SELECT filename, divs FROM lessons WHERE divs > 0;")
+    c.execute("SELECT filename, divs FROM lessons WHERE divs = 1;")
     recs = c.fetchall()
     c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
     zeros = c.fetchall()

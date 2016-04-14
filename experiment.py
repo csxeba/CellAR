@@ -88,15 +88,16 @@ class CNNetTheano(ConvNet):
         scores = [list(), list()]
         for epoch in range(1, epochs+1):
             self.learn(batch_size)
-            tcost, tscore = self.evaluate("testing")
-            lcost, lscore = self.evaluate("learning")
-            scores[0].append(tscore)
-            scores[1].append(lscore)
-            print("Epoch {} done! Last cost: {}".format(epoch, lcost))
-            print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
-            if epoch % 10 == 0 and eta_decay > 0:
-                self.eta -= eta_decay
-                print("ETA DECAYED TO", self.eta)
+            if epoch % 1 == 0:
+                tcost, tscore = self.evaluate("testing")
+                lcost, lscore = self.evaluate("learning")
+                scores[0].append(tscore)
+                scores[1].append(lscore)
+                print("Epoch {} done! Last cost: {}".format(epoch, lcost))
+                print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
+                if eta_decay:
+                    self.eta -= eta_decay
+                    print("ETA DECAYED TO", self.eta)
 
         return scores
 
@@ -114,12 +115,15 @@ class FFNetThinkster(Network):
     def train(self, epochs, batch_size):
         scores = [list(), list()]
         for epoch in range(1, epochs+1):
+
             self.learn(batch_size=batch_size)
-            scores[0].append(self.evaluate())
-            scores[1].append(self.evaluate("learning"))
-            if epoch % 1 == 0:
+
+            if epoch % 2 == 0:
+                scores[0].append(self.evaluate())
+                scores[1].append(self.evaluate("learning"))
                 print("Epoch {}, Err: {}".format(epoch, self.error))
                 print("Acc:", scores[0][-1], scores[1][-1])
+
         return scores
 
 
@@ -142,24 +146,24 @@ class CNNetThinkster(Network):
             print("Acc:", self.evaluate(), self.evaluate("learning"))
 
 
-learning_table_to_use = "cssmallctr.pkl.gz"
+learning_table_to_use = "cssmallconvd.pkl.gz"
 
 crossval = 0.1
 pca = 0
 standardize = True
 reshape = True
 simplify_to_binary = True
-hiddens = (400, 200)
+hiddens = (10,)
 drop = 0.0
 act_fn_H = Sigmoid
 
 cost = MSE
 aepochs = 0
-epochs = 50
-batch_size = 25
-eta = 0.5
-eta_decay = 0.0
-lmbd = 0.0
+epochs = 100
+batch_size = 10
+eta = 0.2
+eta_decay = 0
+lmbd = 0.1
 netclass = CNNetTheano
 
 
