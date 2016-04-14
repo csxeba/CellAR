@@ -81,7 +81,7 @@ class CNNetTheano(ConvNet):
         nfilters = 1
         cfshape = (5, 5)
         pool = 2
-        hidden_fc = 60
+        hidden_fc = 120
         ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
 
     def train(self, epochs, batch_size):
@@ -142,28 +142,28 @@ class CNNetThinkster(Network):
             print("Acc:", self.evaluate(), self.evaluate("learning"))
 
 
-if __name__ == '__main__':
+learning_table_to_use = "cssmall.pkl.gz"
 
-    learning_table_to_use = "bigctrlt.pkl.gz"
+crossval = 0.1
+pca = 0
+standardize = True
+reshape = True
+simplify_to_binary = True
+hiddens = (400, 200)
+drop = 0.0
+act_fn_H = Sigmoid
 
-    crossval = 0.2
-    pca = 0
-    standardize = True
-    reshape = True
-    simplify_to_binary = True
-    hiddens = (250, 100, 100)
-    drop = 0
-    act_fn_H = Sigmoid
+cost = MSE
+aepochs = 0
+epochs = 50
+batch_size = 25
+eta = 0.5
+eta_decay = 0.0
+lmbd = 0.0
+netclass = CNNetTheano
 
-    cost = MSE
-    aepochs = 0
-    epochs = 100
-    batch_size = 100
-    eta = 1.25
-    eta_decay = 0.0
-    lmbd = 0.0
-    netclass = CNNetTheano
 
+def main():
     # Wrap the data and build the net from the supplied hyperparameters
 
     f = gzip.open(ltpath + learning_table_to_use, "rb")
@@ -185,10 +185,6 @@ if __name__ == '__main__':
 
     print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
 
-    for aepoch in range(aepochs):
-        net.autoencode(100)
-        print("AE epoch {}. Cost' = {}".format(aepoch, net.error))
-
     score = net.train(epochs, batch_size)
 
     while 1:
@@ -209,4 +205,5 @@ if __name__ == '__main__':
         score[1].extend(ns[1])
 
 
-
+if __name__ == '__main__':
+    main()

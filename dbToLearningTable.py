@@ -6,8 +6,8 @@ import numpy as np
 from PIL import Image
 
 
-dbspath = "/data/Prog/Diploma/GorApps/"
-slicepath = "/data/Prog/data/raw/convd/"
+dbspath = "/data/Prog/Diploma/ClassByCsa/"
+slicepath = "/data/Prog/data/raw/tiles/"
 
 
 def fetchrecs(db):
@@ -15,12 +15,11 @@ def fetchrecs(db):
     c = conn.cursor()
     c.execute("SELECT filename, divs FROM lessons WHERE divs > 0;")
     recs = c.fetchall()
-    c.execute("SELECT filename, divs FROM lessons WHERE divs == 0;")
+    c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
     zeros = c.fetchall()
     conn.close()
-    # random.shuffle(zeros)
-    # recs.extend(zeros[:len(recs)])
-    recs.extend(zeros)
+    recs.extend(zeros[:len(recs)])
+    # recs.extend(zeros)
     random.shuffle(recs)
     print("Fetched {} records!".format(len(recs)))
 

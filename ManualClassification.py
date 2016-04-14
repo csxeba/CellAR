@@ -121,7 +121,7 @@ class App(Tk):
                ).grid(row=6, column=cols+2, sticky="ew")
 
         self.bind("<Key>", self._keypress)
-        self.bind("<Return>", self.next)
+        self.bind("<Return>", self.next)comments/3l4ek5/amazing_big_breasted_teen_strokes_a_great_cock/
         self.bind("<Left>", self.back)
         self.bind("<Right>", self.next)
         # GUI built
