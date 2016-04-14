@@ -7,7 +7,7 @@ from PIL import Image
 
 
 dbspath = "/data/Prog/Diploma/ClassByCsa/"
-slicepath = "/data/Prog/data/raw/tiles/"
+slicepath = "/data/Prog/data/raw/convd/"
 
 
 def fetchrecs(db):
