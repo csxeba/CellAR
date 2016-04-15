@@ -5,8 +5,8 @@ import sqlite3 as sql
 from PIL import Image, ImageTk
 
 dbpath = "/data/Prog/Diploma/ClassByCsa/"
-dbname = "all.db"
-pixpath = "/data/Prog/data/raw/tiles/"
+dbname = "zorro.db"
+pixpath = "/data/Prog/data/raw/convd/"
 
 
 class DB:

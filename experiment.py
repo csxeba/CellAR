@@ -146,27 +146,6 @@ class CNNetThinkster(Network):
             print("Acc:", self.evaluate(), self.evaluate("learning"))
 
 
-learning_table_to_use = "cssmallconvd.pkl.gz"
-
-crossval = 0.1
-pca = 0
-standardize = True
-reshape = True
-simplify_to_binary = True
-hiddens = (10,)
-drop = 0.0
-act_fn_H = Sigmoid
-
-cost = MSE
-aepochs = 0
-epochs = 100
-batch_size = 10
-eta = 0.2
-eta_decay = 0
-lmbd = 0.1
-netclass = CNNetTheano
-
-
 def main():
     # Wrap the data and build the net from the supplied hyperparameters
 
@@ -187,7 +166,7 @@ def main():
         myData.standardize()
     net = netclass(myData, eta=eta, lmbd=lmbd)
 
-    print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
+    print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
 
     score = net.train(epochs, batch_size)
 
@@ -208,6 +187,26 @@ def main():
         score[0].extend(ns[0])
         score[1].extend(ns[1])
 
+
+learning_table_to_use = "onezero.pkl.gz"
+
+crossval = 0.1
+pca = 0
+standardize = True
+reshape = True
+simplify_to_binary = True
+
+hiddens = (300, 100)
+drop = 0.0
+act_fn_H = Sigmoid
+cost = MSE
+aepochs = 0
+epochs = 100
+batch_size = 20
+eta = 0.1
+eta_decay = 0
+lmbd = 0.0
+netclass = CNNetTheano
 
 if __name__ == '__main__':
     main()
