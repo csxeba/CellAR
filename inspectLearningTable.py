@@ -37,10 +37,9 @@ class App(Tk):
 
     def load_pic(self):
         from PIL import Image, ImageTk
-        img_data = np.array([self.lt[0][self.progress].reshape(60, 60) for _ in range(3)])
-        pic = Image.fromarray(img_data)
+        img_data = np.array([self.lt[0][self.progress].reshape(60, 60) for _ in range(3)]).astype(int)
+        pic = Image.fromarray(img_data, mode="RGB")
         label = self.lt[1][self.progress]
-        pic.show()
         pic = pic.resize((pic.size[0] * 5, pic.size[1] * 5))
         # pic.show()
         self.imaglab.configure(image=ImageTk.PhotoImage(pic))
