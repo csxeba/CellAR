@@ -79,9 +79,9 @@ class FFNetTheano:
 class CNNetTheano(ConvNet):
     def __init__(self, data, eta, lmbd):
         nfilters = 1
-        cfshape = (5, 5)
+        cfshape = (3, 3)
         pool = 2
-        hidden_fc = 120
+        hidden_fc = 30
         ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
 
     def train(self, epochs, batch_size):
@@ -147,8 +147,7 @@ class CNNetThinkster(Network):
 
 
 def main():
-    # Wrap the data and build the net from the supplied hyperparameters
-
+    # Wrap the data
     f = gzip.open(ltpath + learning_table_to_use, "rb")
     questions, targets = pickle.load(f)
     questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
@@ -161,13 +160,16 @@ def main():
 
     myData = CData(lt, cross_val=crossval, header=None, pca=pca)
     if reshape:
+        assert not pca, "Why would you shape PCA transformed data?"
         myData.data = myData._datacopy = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
-    if standardize or not pca:
+    if standardize:
+        assert not pca, "Why would you standardize PCA transformed data?"
         myData.standardize()
+
+    # Create network
     net = netclass(myData, eta=eta, lmbd=lmbd)
 
-    print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
-
+    # print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
     score = net.train(epochs, batch_size)
 
     while 1:
@@ -188,6 +190,13 @@ def main():
         score[1].extend(ns[1])
 
 
+def test_on_MNIST():
+    data = CData(ltpath + "mnist.lt.pkl.gz", cross_val=0.2)
+    net = netclass(data, eta, lmbd)
+
+    net.train(epochs, batch_size)
+
+
 learning_table_to_use = "onezero.pkl.gz"
 
 crossval = 0.1
@@ -202,11 +211,12 @@ act_fn_H = Sigmoid
 cost = MSE
 aepochs = 0
 epochs = 100
-batch_size = 20
-eta = 0.1
-eta_decay = 0
+batch_size = 10
+eta = 0.0
+eta_decay = 0.0
 lmbd = 0.0
 netclass = CNNetTheano
 
 if __name__ == '__main__':
     main()
+    # test_on_MNIST()
