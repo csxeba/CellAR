@@ -78,10 +78,10 @@ class FFNetTheano:
 
 class CNNetTheano(ConvNet):
     def __init__(self, data, eta, lmbd):
-        nfilters = 1
-        cfshape = (3, 3)
-        pool = 2
-        hidden_fc = 30
+        nfilters = 2
+        cfshape = (9, 9)
+        pool = 3
+        hidden_fc = 180
         ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
 
     def train(self, epochs, batch_size):
@@ -93,7 +93,7 @@ class CNNetTheano(ConvNet):
                 lcost, lscore = self.evaluate("learning")
                 scores[0].append(tscore)
                 scores[1].append(lscore)
-                print("Epoch {} done! Last cost: {}".format(epoch, lcost))
+                print("Epoch {} done! Cost: {}".format(epoch, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
                 if eta_decay:
                     self.eta -= eta_decay
@@ -169,7 +169,7 @@ def main():
     # Create network
     net = netclass(myData, eta=eta, lmbd=lmbd)
 
-    # print("Initial test: T", net.evaluate(), "L", net.evaluate("learning"))
+    # print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
     score = net.train(epochs, batch_size)
 
     while 1:
@@ -199,7 +199,7 @@ def test_on_MNIST():
 
 learning_table_to_use = "onezero.pkl.gz"
 
-crossval = 0.1
+crossval = 0.3
 pca = 0
 standardize = True
 reshape = True
@@ -210,9 +210,9 @@ drop = 0.0
 act_fn_H = Sigmoid
 cost = MSE
 aepochs = 0
-epochs = 100
+epochs = 200
 batch_size = 10
-eta = 0.0
+eta = 0.01
 eta_decay = 0.0
 lmbd = 0.0
 netclass = CNNetTheano
