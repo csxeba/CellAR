@@ -10,7 +10,7 @@ from csxnet.datamodel import RData, CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
 from csxnet.brainforge.Utility.activations import *
-from csxnet.thNets.thANN import ConvNet
+from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
 
 ltpath = "/data/Prog/data/learning_tables/"
 theano.config.exception_verbosity = "high"
@@ -76,13 +76,14 @@ class FFNetTheano:
         return rate
 
 
-class CNNetTheano(ConvNet):
+class CNNexplicit(ConvNetExplicit):
     def __init__(self, data, eta, lmbd):
         nfilters = 2
         cfshape = (9, 9)
         pool = 3
-        hidden_fc = 180
-        ConvNet.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden_fc)
+        hidden1 = 180
+        hidden2 = 60
+        ConvNetExplicit.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden1, hidden2)
 
     def train(self, epochs, batch_size):
         scores = [list(), list()]
@@ -98,6 +99,28 @@ class CNNetTheano(ConvNet):
                 if eta_decay:
                     self.eta -= eta_decay
                     print("ETA DECAYED TO", self.eta)
+
+        return scores
+
+
+class CNNdynamic(ConvNetDynamic):
+    def __init__(self, data, eta, lmbd):
+        ConvNetDynamic.__init__(self, data, eta, lmbd)
+        self.add_convpool(conv=5, filters=2, pool=2)
+        self.add_fc(neurons=120)
+        self.finalize()
+
+    def train(self, epochs, batch_size):
+        scores = [list(), list()]
+        for epoch in range(1, epochs + 1):
+            self.learn(batch_size)
+            if epoch % 1 == 0:
+                tcost, tscore = self.evaluate("testing")
+                lcost, lscore = self.evaluate("learning")
+                scores[0].append(tscore)
+                scores[1].append(lscore)
+                print("Epoch {} done! Cost: {}".format(epoch, lcost))
+                print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
 
         return scores
 
@@ -190,13 +213,6 @@ def main():
         score[1].extend(ns[1])
 
 
-def test_on_MNIST():
-    data = CData(ltpath + "mnist.lt.pkl.gz", cross_val=0.2)
-    net = netclass(data, eta, lmbd)
-
-    net.train(epochs, batch_size)
-
-
 learning_table_to_use = "onezero.pkl.gz"
 
 crossval = 0.3
@@ -212,10 +228,10 @@ cost = MSE
 aepochs = 0
 epochs = 200
 batch_size = 10
-eta = 0.01
+eta = 0.03
 eta_decay = 0.0
 lmbd = 0.0
-netclass = CNNetTheano
+netclass = CNNdynamic
 
 if __name__ == '__main__':
     main()
