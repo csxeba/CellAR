@@ -216,7 +216,7 @@ def sanity_check():
     mnistdata = CData(mnistlt, cross_val=.1)
     del mnistlt
 
-    net = network_class(mnistdata, eta=0.5, lmbd=5.0, cost=MSE)
+    net = network_class(mnistdata, eta=0.5, lmbd1=2.5, lmbd2=2.5, cost=MSE)
     score = net.train(epochs=10, batch_size=10)
 
     while 1:
@@ -241,11 +241,11 @@ def display(score):
     plt.show()
 
 
-learning_table_to_use = "onezeroctr.pkl.gz"
+learning_table_to_use = "onezero.pkl.gz"
 network_class = CNNexplicit
 
 # Paramters for the data wrapper
-crossval = 0.2
+crossval = 0.1
 pca = 0
 standardize = True
 reshape = True
@@ -259,7 +259,6 @@ drop = 0.0  # Chance of dropout
 batch_size = 20
 bsize_decay = False
 eta = 0.3
-eta_decay = 0.01  # Gets subtracted from eta after each epoch
 lmbd1 = 0.05
 lmbd2 = 0.05
 act_fn_H = Sigmoid  # Activation function of hidden layers
@@ -267,5 +266,5 @@ cost = Xent  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    # main()
-    sanity_check()
+    main()
+    # sanity_check()
