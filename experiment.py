@@ -1,6 +1,7 @@
 """Cell division detection with Artificial Neural Networks"""
 import pickle
 import gzip
+import sys
 
 import matplotlib.pyplot as plt
 import theano
@@ -12,7 +13,8 @@ from csxnet.brainforge.Utility.cost import Xent, MSE
 from csxnet.brainforge.Utility.activations import *
 from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
 
-ltpath = "/data/Prog/data/learning_tables/"
+
+ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/Data/learning_tables/"
 theano.config.exception_verbosity = "high"
 
 
@@ -50,7 +52,7 @@ class FFNetTheano:
         update_W2 = (l2term * W2) - ((eta / m) * theano.grad(xent, W2))
 
         self._fit = theano.function((X, Y, m), updates=((W1, update_W1), (W2, update_W2)))
-        self.predict = theano.function((X), outputs=(prediction,))
+        self.predict = theano.function(X, outputs=(prediction,))
 
     def train(self, epochs, batch_size):
         print("Start training")
@@ -77,13 +79,17 @@ class FFNetTheano:
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, eta, lmbd):
+    def __init__(self, data, eta, lmbd, cost):
         nfilters = 2
-        cfshape = (9, 9)
-        pool = 3
-        hidden1 = 180
-        hidden2 = 60
-        ConvNetExplicit.__init__(self, data, eta, lmbd, nfilters, cfshape, pool, hidden1, hidden2)
+        cfshape = (3, 3)
+        pool = 2
+        hidden1 = 60
+        hidden2 = 30
+        cost = "MSE" if cost is MSE else "Xent"
+        ConvNetExplicit.__init__(self, data, eta, lmbd,
+                                 nfilters, cfshape, pool,
+                                 hidden1, hidden2,
+                                 cost)
 
     def train(self, epochs, batch_size):
         scores = [list(), list()]
@@ -94,20 +100,19 @@ class CNNexplicit(ConvNetExplicit):
                 lcost, lscore = self.evaluate("learning")
                 scores[0].append(tscore)
                 scores[1].append(lscore)
-                print("Epoch {} done! Cost: {}".format(epoch, lcost))
+                print("Epoch {}/{} done! Cost: {}".format(epoch, epochs, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
-                if eta_decay:
-                    self.eta -= eta_decay
-                    print("ETA DECAYED TO", self.eta)
 
         return scores
 
 
 class CNNdynamic(ConvNetDynamic):
-    def __init__(self, data, eta, lmbd):
-        ConvNetDynamic.__init__(self, data, eta, lmbd)
-        self.add_convpool(conv=5, filters=2, pool=2)
-        self.add_fc(neurons=120)
+    def __init__(self, data, eta, lmbd, cost):
+        cost = "MSE" if cost is MSE else "Xent"
+        ConvNetDynamic.__init__(self, data, eta, lmbd, cost)
+        self.add_convpool(conv=3, filters=2, pool=2)
+        self.add_fc(neurons=60)
+        self.add_fc(neurons=30)
         self.finalize()
 
     def train(self, epochs, batch_size):
@@ -119,7 +124,7 @@ class CNNdynamic(ConvNetDynamic):
                 lcost, lscore = self.evaluate("learning")
                 scores[0].append(tscore)
                 scores[1].append(lscore)
-                print("Epoch {} done! Cost: {}".format(epoch, lcost))
+                print("Epoch {}/{} done! Cost: {}".format(epoch, epochs, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
 
         return scores
@@ -150,25 +155,6 @@ class FFNetThinkster(Network):
         return scores
 
 
-class CNNetThinkster(Network):
-    def __init__(self, data, eta, lmbd):
-        Network.__init__(self, data, eta, lmbd, Xent)
-        self.add_conv((5, 5), n_filters=1)
-        self.add_pool(2)
-        # self.add_conv((3, 3), n_filters=3)
-        # self.add_pool(2)
-        # self.add_fc(100)
-        self.add_fc(30)
-        self.finalize_architecture()
-
-    def train(self, epochs, batch_size):
-        for epoch in range(epochs):
-            self.learn(batch_size=batch_size)
-            print("Epoch {}".format(epoch))
-            print("Cost':", self.error)
-            print("Acc:", self.evaluate(), self.evaluate("learning"))
-
-
 def main():
     # Wrap the data
     f = gzip.open(ltpath + learning_table_to_use, "rb")
@@ -190,10 +176,40 @@ def main():
         myData.standardize()
 
     # Create network
-    net = netclass(myData, eta=eta, lmbd=lmbd)
+    net = netclass(myData, eta=eta, lmbd=lmbd, cost=cost)
 
     # print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
     score = net.train(epochs, batch_size)
+
+    while 1:
+        X = np.arange(len(score[0]))
+        plt.plot(X, score[0], "b", label="T")
+        plt.plot(X, score[1], "r", label="L")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+                   ncol=2, mode="expand", borderaxespad=0.)
+        plt.show()
+
+        more = int(input("----------\nMore? How much epochs?\n> "))
+
+        if more < 1:
+            break
+
+        ns = net.train(int(more), 100)
+        score[0].extend(ns[0])
+        score[1].extend(ns[1])
+
+
+def sanity_check():
+    from csxnet.datamodel import mnist_to_lt
+
+    print("ATTENTION! This is a sanity test on MNIST data!")
+
+    mnistlt = mnist_to_lt(ltpath+"mnist.pkl.gz")
+    mnistdata = CData(mnistlt, cross_val=.1)
+    del mnistlt
+
+    net = netclass(mnistdata, eta=0.5, lmbd=5.0, cost=Xent)
+    score = net.train(epochs=10, batch_size=10)
 
     while 1:
         X = np.arange(len(score[0]))
@@ -226,13 +242,13 @@ drop = 0.0
 act_fn_H = Sigmoid
 cost = MSE
 aepochs = 0
-epochs = 200
+epochs = 50
 batch_size = 10
-eta = 0.03
+eta = 0.1
 eta_decay = 0.0
 lmbd = 0.0
-netclass = CNNdynamic
+netclass = CNNexplicit
 
 if __name__ == '__main__':
-    main()
-    # test_on_MNIST()
+    # main()
+    sanity_check()
