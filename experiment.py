@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import theano
 import theano.tensor as T
 
-from csxnet.datamodel import RData, CData
+from csxnet.datamodel import CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
 from csxnet.brainforge.Utility.activations import *
@@ -220,13 +220,7 @@ def sanity_check():
     score = net.train(epochs=10, batch_size=10)
 
     while 1:
-        X = np.arange(len(score[0]))
-        plt.plot(X, score[0], "b", label="T")
-        plt.plot(X, score[1], "r", label="L")
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-                   ncol=2, mode="expand", borderaxespad=0.)
-        plt.show()
-
+        display(score)
         more = int(input("----------\nMore? How much epochs?\n> "))
 
         if more < 1:
@@ -273,5 +267,5 @@ cost = Xent  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    main()
-    # sanity_check()
+    # main()
+    sanity_check()
