@@ -83,8 +83,8 @@ class CNNexplicit(ConvNetExplicit):
         nfilters = 2
         cfshape = (3, 3)
         pool = 2
-        hidden1 = 60
-        hidden2 = 30
+        hidden1 = 120
+        hidden2 = 60
         cost = "MSE" if cost is MSE else "Xent"
         ConvNetExplicit.__init__(self, data, eta, lmbd,
                                  nfilters, cfshape, pool,
@@ -111,8 +111,8 @@ class CNNdynamic(ConvNetDynamic):
         cost = "MSE" if cost is MSE else "Xent"
         ConvNetDynamic.__init__(self, data, eta, lmbd, cost)
         self.add_convpool(conv=3, filters=2, pool=2)
-        self.add_fc(neurons=60)
-        self.add_fc(neurons=30)
+        for hid in hiddens:
+            self.add_fc(hid)
         self.finalize()
 
     def train(self, epochs, batch_size):
@@ -131,7 +131,7 @@ class CNNdynamic(ConvNetDynamic):
 
 
 class FFNetThinkster(Network):
-    def __init__(self, data, eta, lmbd):
+    def __init__(self, data, eta, lmbd, cost):
         Network.__init__(self, data, eta, lmbd, cost)
         for h in hiddens:
             if not drop and h:
@@ -146,7 +146,7 @@ class FFNetThinkster(Network):
 
             self.learn(batch_size=batch_size)
 
-            if epoch % 2 == 0:
+            if epoch % 1 == 0:
                 scores[0].append(self.evaluate())
                 scores[1].append(self.evaluate("learning"))
                 print("Epoch {}, Err: {}".format(epoch, self.error))
@@ -176,25 +176,24 @@ def main():
         myData.standardize()
 
     # Create network
-    net = netclass(myData, eta=eta, lmbd=lmbd, cost=cost)
+    net = network_class(myData, eta=eta, lmbd=lmbd, cost=cost)
 
     # print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
     score = net.train(epochs, batch_size)
 
     while 1:
-        X = np.arange(len(score[0]))
-        plt.plot(X, score[0], "b", label="T")
-        plt.plot(X, score[1], "r", label="L")
-        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-                   ncol=2, mode="expand", borderaxespad=0.)
-        plt.show()
+        display(score)
 
         more = int(input("----------\nMore? How much epochs?\n> "))
-
+        try:
+            more = int(more)
+        except ValueError:
+            print("Now you killed my script. Thanks.")
+            more = 0
         if more < 1:
             break
 
-        ns = net.train(int(more), 100)
+        ns = net.train(more, 100)
         score[0].extend(ns[0])
         score[1].extend(ns[1])
 
@@ -208,7 +207,7 @@ def sanity_check():
     mnistdata = CData(mnistlt, cross_val=.1)
     del mnistlt
 
-    net = netclass(mnistdata, eta=0.5, lmbd=5.0, cost=Xent)
+    net = network_class(mnistdata, eta=0.5, lmbd=5.0, cost=MSE)
     score = net.train(epochs=10, batch_size=10)
 
     while 1:
@@ -229,26 +228,39 @@ def sanity_check():
         score[1].extend(ns[1])
 
 
-learning_table_to_use = "onezero.pkl.gz"
+def display(score):
+    X = np.arange(len(score[0]))
+    plt.plot(X, score[0], "b", label="T")
+    plt.plot(X, score[1], "r", label="L")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+               ncol=2, mode="expand", borderaxespad=0.)
+    plt.axis([0, X.max(), 0.0, 1.0])
+    plt.show()
 
+
+learning_table_to_use = "onezero.pkl.gz"
+network_class = CNNdynamic
+
+# Paramters for the data wrapper
 crossval = 0.3
 pca = 0
 standardize = True
 reshape = True
-simplify_to_binary = True
+simplify_to_binary = False
 
-hiddens = (300, 100)
-drop = 0.0
-act_fn_H = Sigmoid
-cost = MSE
-aepochs = 0
-epochs = 50
+# Parameters for the neural network
+hiddens = (180, 60)
+aepochs = 0  # Autoencode for this many epochs
+epochs = 100
+drop = 0.0  # Chance of dropout
 batch_size = 10
 eta = 0.1
-eta_decay = 0.0
-lmbd = 0.0
-netclass = CNNexplicit
+eta_decay = 0.0  # Gets subtracted from eta after each epoch
+lmbd = 0.001
+act_fn_H = Sigmoid  # Activation function of hidden layers
+cost = Xent  # MSE / Xent cost functions supported
+
 
 if __name__ == '__main__':
-    # main()
-    sanity_check()
+    main()
+    # sanity_check()
