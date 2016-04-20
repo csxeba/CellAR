@@ -79,19 +79,22 @@ class FFNetTheano:
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, eta, lmbd, cost):
+    def __init__(self, data, eta, lmbd1, lmbd2, cost):
         nfilters = 2
         cfshape = (3, 3)
         pool = 2
         hidden1 = 120
         hidden2 = 60
         cost = "MSE" if cost is MSE else "Xent"
-        ConvNetExplicit.__init__(self, data, eta, lmbd,
+        ConvNetExplicit.__init__(self, data, eta, lmbd1, lmbd2,
                                  nfilters, cfshape, pool,
                                  hidden1, hidden2,
                                  cost)
 
     def train(self, epochs, batch_size):
+        if batch_size == "full":
+            print("ATTENTION! Learning in full batch mode! m =", self.data.N)
+            batch_size = self.data.N
         scores = [list(), list()]
         for epoch in range(1, epochs+1):
             self.learn(batch_size)
@@ -102,20 +105,26 @@ class CNNexplicit(ConvNetExplicit):
                 scores[1].append(lscore)
                 print("Epoch {}/{} done! Cost: {}".format(epoch, epochs, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
+            # if self.age % 50 == 0 and bsize_decay:
+            #     batch_size //= 2
+            #     print("M decayed to", batch_size)
 
         return scores
 
 
 class CNNdynamic(ConvNetDynamic):
-    def __init__(self, data, eta, lmbd, cost):
+    def __init__(self, data, eta, lmbd1, lmbd2, cost):
         cost = "MSE" if cost is MSE else "Xent"
-        ConvNetDynamic.__init__(self, data, eta, lmbd, cost)
+        ConvNetDynamic.__init__(self, data, eta, lmbd1, lmbd2, cost)
         self.add_convpool(conv=3, filters=2, pool=2)
         for hid in hiddens:
             self.add_fc(hid)
         self.finalize()
 
     def train(self, epochs, batch_size):
+        if batch_size == "full":
+            print("ATTENTION! Learning in full batch mode! m =", self.data.N)
+            batch_size = self.data.N
         scores = [list(), list()]
         for epoch in range(1, epochs + 1):
             self.learn(batch_size)
@@ -176,7 +185,7 @@ def main():
         myData.standardize()
 
     # Create network
-    net = network_class(myData, eta=eta, lmbd=lmbd, cost=cost)
+    net = network_class(myData, eta=eta, lmbd1=lmbd1, lmbd2=lmbd2, cost=cost)
 
     # print("Initial test: T", net.evaluate()[1], "L", net.evaluate("learning")[1])
     score = net.train(epochs, batch_size)
@@ -193,7 +202,7 @@ def main():
         if more < 1:
             break
 
-        ns = net.train(more, 100)
+        ns = net.train(more, batch_size)
         score[0].extend(ns[0])
         score[1].extend(ns[1])
 
@@ -238,11 +247,11 @@ def display(score):
     plt.show()
 
 
-learning_table_to_use = "onezero.pkl.gz"
-network_class = CNNdynamic
+learning_table_to_use = "onezeroctr.pkl.gz"
+network_class = CNNexplicit
 
 # Paramters for the data wrapper
-crossval = 0.3
+crossval = 0.2
 pca = 0
 standardize = True
 reshape = True
@@ -253,10 +262,12 @@ hiddens = (180, 60)
 aepochs = 0  # Autoencode for this many epochs
 epochs = 100
 drop = 0.0  # Chance of dropout
-batch_size = 10
-eta = 0.1
-eta_decay = 0.0  # Gets subtracted from eta after each epoch
-lmbd = 0.001
+batch_size = 20
+bsize_decay = False
+eta = 0.3
+eta_decay = 0.01  # Gets subtracted from eta after each epoch
+lmbd1 = 0.05
+lmbd2 = 0.05
 act_fn_H = Sigmoid  # Activation function of hidden layers
 cost = Xent  # MSE / Xent cost functions supported
 

@@ -7,8 +7,9 @@ from PIL import Image
 
 
 dbspath = "/data/Prog/Diploma/ClassByCsa/"
-slicepath = "/data/Prog/data/raw/tiles/"
-
+sliceroot = "/data/Prog/data/raw/"
+processing = "bgs"
+slicepath = sliceroot + processing + "/"
 
 def fetchrecs(db):
     conn = sql.connect(dbspath + db)
@@ -48,7 +49,7 @@ def lessons_to_learning_table(less):
 def dump_learning_table(lt):
     import pickle
     import gzip
-    f = gzip.open("learning.table.pkl.gz", "wb")
+    f = gzip.open("learning.table_" + processing + ".pkl.gz", "wb")
     print("Dumping...")
     pickle.dump(lt, f)
     f.close()
