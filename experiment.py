@@ -47,9 +47,14 @@ class CNNexplicit(ConvNetExplicit):
 
 class CNNdynamic(ConvNetDynamic):
     def __init__(self, data, l_rate, l1, l2, momentum, costfn):
+        if data.pca:
+            raise RuntimeError("CNN received PCAd data...")
         ConvNetDynamic.__init__(self, data, l_rate, l1, l2, momentum, costfn)
-        self.add_convpool(conv=7, filters=2, pool=3)
+        self.add_convpool(conv=7, filters=5, pool=3)
         for hid in hiddens:
+            if isinstance(hid, str):
+                hid = int(hid[:-1])
+                print("DropoutLayer not yet implemented! Falling back to FCLayer!")
             if hid:
                 self.add_fc(hid, act_fn_H)
         self.finalize()
@@ -193,7 +198,8 @@ def wrap_data():
     myData = CData(lt, cross_val=crossval, header=None, pca=pca)
     if reshape:
         assert not pca, "Why would you reshape PCA transformed data?"
-        myData.data = myData._datacopy = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
+        myData.data = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
+        myData.split_data()
     if standardize:
         assert not pca, "Why would you standardize PCA transformed data?"
         myData.standardize()
@@ -213,26 +219,26 @@ def display(score):
 
 
 learning_table_to_use = "onezero.pkl.gz"
-network_class = FFNetThinkster
+network_class = CNNdynamic
 
 # Paramters for the data wrapper
 crossval = 0.1
-pca = 100
+pca = 0
 standardize = False
-reshape = False
+reshape = True
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (120, "60d", 30)
+hiddens = (180, 60)
 aepochs = 0  # Autoencode for this many epochs
-epochs = 100
-drop = 0.5  # Chance of dropout
+epochs = 50
+drop = 0.0  # Chance of dropout
 batch_size = 20
 bsize_decay = False
 eta = 0.3
-lmbd1 = 0.0
-lmbd2 = 0.0
-mu = 2.0
+lmbd1 = 0.05
+lmbd2 = 0.05
+mu = 0.9
 act_fn_H = "sigmoid"  # Activation function of hidden layers
 cost = "xent"  # MSE / Xent cost functions supported
 
