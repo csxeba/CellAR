@@ -229,10 +229,10 @@ epochs = 100
 drop = 0.5  # Chance of dropout
 batch_size = 20
 bsize_decay = False
-eta = 0.1
+eta = 0.3
 lmbd1 = 0.0
 lmbd2 = 0.0
-mu = 0.9
+mu = 2.0
 act_fn_H = "sigmoid"  # Activation function of hidden layers
 cost = "xent"  # MSE / Xent cost functions supported
 
