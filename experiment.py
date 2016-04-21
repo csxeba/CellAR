@@ -76,17 +76,22 @@ class FFNetThinkster(Network):
     def __init__(self, data, lrate, l1, l2, momentum, costfn):
         if isinstance(costfn, str):
             costfn = {"mse": MSE, "xent": Xent}[costfn.lower()]
+        else:
+            costfn = cost
         if isinstance(act_fn_H, str):
             actfn = {"sig": Sigmoid, "tan": Tanh,
                      "rel": ReL, "lin": Linear}[act_fn_H[:3]]
+        else:
+            actfn = act_fn_H
 
         Network.__init__(self, data, lrate, l1, l2, momentum, costfn)
 
         for h in hiddens:
-            if not drop and h:
+            if isinstance(h, int) and h:
                 self.add_fc(h, activation=actfn)
-            if drop and h:
-                self.add_drop(h, drop, activation=actfn)
+            if isinstance(h, str) and h:
+                h = int(h[:-1])
+                self.add_drop(h, drop, activation=ReL)
         self.finalize_architecture()
 
     def train(self, eps, bsize):
@@ -103,22 +108,15 @@ class FFNetThinkster(Network):
 
         return scores
 
-    def describe(self, verbose=0):
-        chain = "----------\n"
-        chain += "CsxNet Feed Forward Network.\n"
-        chain += "Age: " + str(self.age) + "\n"
-        chain += "Architecture printing not implemented <yet>.\n"
-        chain += "----------"
-        if verbose:
-            print(chain)
-        else:
-            return chain
-
 
 def main():
+    print("Wrapping learning data...")
     myData = wrap_data()
 
+    print("Building network...")
     net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
+
+    net.describe(1)
 
     score = net.train(epochs, batch_size)
 
@@ -146,8 +144,9 @@ def sanity_check():
     print("ATTENTION! This is a sanity test on MNIST data!")
 
     lrate = 0.5
-    l1 = 0.0
+    l1 = 2.0
     l2 = 0.0
+    momentum = 0.9
     costfn = "xent"
 
     no_epochs = 10
@@ -159,8 +158,8 @@ def sanity_check():
     del mnistlt
 
     print("Building Neural Network...")
-    net = network_class(mnistdata, lrate, l1, l2, mu, costfn)
-    net.describe()
+    net = network_class(mnistdata, lrate, l1, l2, momentum, costfn)
+    net.describe(1)
     print("Training Neural Network...")
     score = net.train(eps=no_epochs, bsize=bsize)
 
@@ -218,16 +217,16 @@ network_class = FFNetThinkster
 
 # Paramters for the data wrapper
 crossval = 0.1
-pca = 0
-standardize = True
-reshape = True
+pca = 100
+standardize = False
+reshape = False
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (60,)
+hiddens = (120, "60d", 30)
 aepochs = 0  # Autoencode for this many epochs
 epochs = 100
-drop = 0.0  # Chance of dropout
+drop = 0.5  # Chance of dropout
 batch_size = 20
 bsize_decay = False
 eta = 0.1
@@ -239,5 +238,5 @@ cost = "xent"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    # main()
-    sanity_check()
+    main()
+    # sanity_check()
