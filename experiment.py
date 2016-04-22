@@ -50,7 +50,7 @@ class CNNdynamic(ConvNetDynamic):
         if data.pca:
             raise RuntimeError("CNN received PCAd data...")
         ConvNetDynamic.__init__(self, data, l_rate, l1, l2, momentum, costfn)
-        self.add_convpool(conv=7, filters=5, pool=3)
+        self.add_convpool(conv=3, filters=2, pool=2)
         for hid in hiddens:
             if isinstance(hid, str):
                 hid = int(hid[:-1])
@@ -114,7 +114,7 @@ class FFNetThinkster(Network):
         return scores
 
 
-def main():
+def run():
     print("Wrapping learning data...")
     myData = wrap_data()
 
@@ -141,6 +141,8 @@ def main():
         ns = net.train(more, batch_size)
         score[0].extend(ns[0])
         score[1].extend(ns[1])
+
+    return net
 
 
 def sanity_check():
@@ -218,31 +220,45 @@ def display(score):
     plt.show()
 
 
+def dreamtest():
+    from PIL import Image
+    net = run()
+    trgts = np.array([[0, 1], [1, 0]])
+    sheep = net.dream(trgts)
+    sheep = net.data.pca.inverse_transform(sheep).astype(int)
+    sheep0 = np.array([sheep[0] for _ in range(3)])
+    sheep1 = np.array([sheep[1] for _ in range(3)])
+    img0 = Image.fromarray(sheep0, mode="RGB")
+    img1 = Image.fromarray(sheep1, mode="RGB")
+    img0.show()
+    img1.show()
+
 learning_table_to_use = "onezero.pkl.gz"
-network_class = CNNdynamic
+network_class = FFNetThinkster
 
 # Paramters for the data wrapper
 crossval = 0.1
-pca = 0
+pca = 200
 standardize = False
-reshape = True
+reshape = False
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (180, 60)
+hiddens = (200, 60, 60)
 aepochs = 0  # Autoencode for this many epochs
-epochs = 50
-drop = 0.0  # Chance of dropout
+epochs = 100
+drop = 0.5  # Chance of dropout (if there are droplayers)
 batch_size = 20
 bsize_decay = False
-eta = 0.3
-lmbd1 = 0.05
-lmbd2 = 0.05
+eta = 0.1
+lmbd1 = 0.0
+lmbd2 = 0.01
 mu = 0.9
 act_fn_H = "sigmoid"  # Activation function of hidden layers
-cost = "xent"  # MSE / Xent cost functions supported
+cost = "mse"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    main()
+    # run()
+    dreamtest()
     # sanity_check()
