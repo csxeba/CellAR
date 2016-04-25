@@ -221,6 +221,7 @@ def display(score):
 
 
 def dreamtest():
+    """Fooling around instead of doing the actual work..."""
     from PIL import Image
     net = run()
     trgts = np.array([[0, 1], [1, 0]])
@@ -233,32 +234,33 @@ def dreamtest():
     img0.show()
     img1.show()
 
+
 learning_table_to_use = "onezero.pkl.gz"
-network_class = FFNetThinkster
+network_class = ConvNetDynamic
 
 # Paramters for the data wrapper
 crossval = 0.1
-pca = 200
-standardize = False
-reshape = False
-simplify_to_binary = False
+pca = 0
+standardize = True
+reshape = True
+simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (200, 60, 60)
+hiddens = (200, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
 epochs = 100
-drop = 0.5  # Chance of dropout (if there are droplayers)
-batch_size = 20
+drop = 0.0  # Chance of dropout (if there are droplayers)
+batch_size = 10
 bsize_decay = False
-eta = 0.1
+eta = 0.2
 lmbd1 = 0.0
-lmbd2 = 0.01
+lmbd2 = 0.0
 mu = 0.9
 act_fn_H = "sigmoid"  # Activation function of hidden layers
 cost = "mse"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    # run()
-    dreamtest()
+    run()
+    # dreamtest()
     # sanity_check()
