@@ -12,7 +12,7 @@ ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, eta, lmbd1, lmbd2, cost):
+    def __init__(self, data, eta, lmbd1, lmbd2, momentum, cost):
         nfilters = 2
         cfshape = (3, 3)
         pool = 2
@@ -38,9 +38,6 @@ class CNNexplicit(ConvNetExplicit):
                 scores[1].append(lscore)
                 print("Epoch {}/{} done! Cost: {}".format(epoch, epochs, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
-            # if self.age % 50 == 0 and bsize_decay:
-            #     batch_size //= 2
-            #     print("M decayed to", batch_size)
 
         return scores
 
@@ -52,6 +49,7 @@ class CNNdynamic(ConvNetDynamic):
 
         ConvNetDynamic.__init__(self, data, l_rate, l1, l2, momentum, costfn)
 
+        self.add_convpool(conv=5, filters=1, pool=2)
         self.add_convpool(conv=5, filters=1, pool=2)
         for hid in hiddens:
             if isinstance(hid, str):
@@ -242,23 +240,22 @@ def dreamtest():
 
 
 learning_table_to_use = "onezeroctr.pkl.gz"
-network_class = FFNetThinkster
+network_class = CNNexplicit
 
 # Paramters for the data wrapper
-crossval = 0.1
-pca = 300
-standardize = False
-reshape = False
+crossval = 0.2
+pca = 0
+standardize = True
+reshape = True
 simplify_to_binary = False
 
 # Parameters for the neural network
 hiddens = (300, 120)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 500
+epochs = 200
 drop = 0.0  # Chance of dropout (if there are droplayers)
 batch_size = 10
-bsize_decay = False
-eta = 0.03
+eta = 0.3
 lmbd1 = 0.0
 lmbd2 = 0.0
 mu = 0.0
