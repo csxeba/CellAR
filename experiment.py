@@ -12,17 +12,16 @@ ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, eta, lmbd1, lmbd2, momentum, cost):
+    def __init__(self, data, eta, lmbd1, lmbd2, momentum, costfn):
         nfilters = 2
         cfshape = (3, 3)
         pool = 2
-        hidden1 = 120
-        hidden2 = 60
-        cost = "MSE" if cost is MSE else "Xent"
+        hidden1, hidden2 = hiddens[0], hiddens[1]
+        costfn = "MSE" if costfn is MSE else "Xent"
         ConvNetExplicit.__init__(self, data, eta, lmbd1, lmbd2,
                                  nfilters, cfshape, pool,
                                  hidden1, hidden2,
-                                 cost)
+                                 costfn)
 
     def train(self, epochs, batch_size):
         if batch_size == "full":
@@ -49,8 +48,7 @@ class CNNdynamic(ConvNetDynamic):
 
         ConvNetDynamic.__init__(self, data, l_rate, l1, l2, momentum, costfn)
 
-        self.add_convpool(conv=5, filters=1, pool=2)
-        self.add_convpool(conv=5, filters=1, pool=2)
+        self.add_convpool(conv=3, filters=2, pool=2)
         for hid in hiddens:
             if isinstance(hid, str):
                 hid = int(hid[:-1])
@@ -240,7 +238,7 @@ def dreamtest():
 
 
 learning_table_to_use = "onezeroctr.pkl.gz"
-network_class = CNNexplicit
+network_class = CNNdynamic
 
 # Paramters for the data wrapper
 crossval = 0.2
@@ -250,7 +248,7 @@ reshape = True
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (300, 120)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
 epochs = 200
 drop = 0.0  # Chance of dropout (if there are droplayers)
@@ -260,7 +258,7 @@ lmbd1 = 0.0
 lmbd2 = 0.0
 mu = 0.0
 act_fn_H = "sigmoid"  # Activation function of hidden layers
-cost = "MSE"  # MSE / Xent cost functions supported
+cost = "Xent"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
