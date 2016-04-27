@@ -1,5 +1,6 @@
 """Cell division detection with Artificial Neural Networks"""
 import sys
+import time
 
 from csxnet.datamodel import CData
 from csxnet.brainforge.Architecture.NNModel import Network
@@ -238,21 +239,21 @@ def dreamtest():
 
 
 learning_table_to_use = "onezeroctr.pkl.gz"
-network_class = CNNdynamic
+network_class = FFNetThinkster
 
 # Paramters for the data wrapper
-crossval = 0.2
+crossval = 0.5
 pca = 0
 standardize = True
 reshape = True
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (500, 120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 200
+epochs = 15
 drop = 0.0  # Chance of dropout (if there are droplayers)
-batch_size = 10
+batch_size = 20
 eta = 0.3
 lmbd1 = 0.0
 lmbd2 = 0.0
@@ -262,6 +263,8 @@ cost = "Xent"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
+    start = time.time()
     run()
+    print("Run took {} seconds".format(int(time.time()-start)))
     # dreamtest()
     # sanity_check()
