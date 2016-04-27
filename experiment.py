@@ -13,13 +13,13 @@ ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, eta, lmbd1, lmbd2, momentum, costfn):
+    def __init__(self, data, rate, l1, l2, momentum, costfn):
         nfilters = 2
-        cfshape = (3, 3)
+        cfshape = (5, 5)
         pool = 2
         hidden1, hidden2 = hiddens[0], hiddens[1]
         costfn = "MSE" if costfn is MSE else "Xent"
-        ConvNetExplicit.__init__(self, data, eta, lmbd1, lmbd2,
+        ConvNetExplicit.__init__(self, data, rate, l1, l2,
                                  nfilters, cfshape, pool,
                                  hidden1, hidden2,
                                  costfn)
@@ -107,7 +107,7 @@ class FFNetThinkster(Network):
             if epoch % 1 == 0:
                 scores[0].append(self.evaluate())
                 scores[1].append(self.evaluate("learning"))
-                print("Epoch {}, Err: {}".format(epoch, self.error))
+                print("Epoch {}/{} done! Err: {}".format(epoch, eps, self.error))
                 print("Acc:", scores[0][-1], scores[1][-1])
 
         return scores
@@ -242,16 +242,16 @@ learning_table_to_use = "onezeroctr.pkl.gz"
 network_class = FFNetThinkster
 
 # Paramters for the data wrapper
-crossval = 0.5
-pca = 0
-standardize = True
-reshape = True
+crossval = 0.2
+pca = 500
+standardize = False
+reshape = False
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (500, 120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 15
+epochs = 100
 drop = 0.0  # Chance of dropout (if there are droplayers)
 batch_size = 20
 eta = 0.3
@@ -259,7 +259,7 @@ lmbd1 = 0.0
 lmbd2 = 0.0
 mu = 0.0
 act_fn_H = "sigmoid"  # Activation function of hidden layers
-cost = "Xent"  # MSE / Xent cost functions supported
+cost = "MSE"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
