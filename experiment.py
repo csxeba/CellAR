@@ -24,19 +24,19 @@ class CNNexplicit(ConvNetExplicit):
                                  hidden1, hidden2,
                                  costfn)
 
-    def train(self, epochs, batch_size):
-        if batch_size == "full":
+    def train(self, eps, bsize):
+        if bsize == "full":
             print("ATTENTION! Learning in full batch mode! m =", self.data.N)
-            batch_size = self.data.N
+            bsize = self.data.N
         scores = [list(), list()]
-        for epoch in range(1, epochs+1):
-            self.learn(batch_size)
+        for epoch in range(1, eps+1):
+            self.learn(bsize)
             if epoch % 1 == 0:
                 tcost, tscore = self.evaluate("testing")
                 lcost, lscore = self.evaluate("learning")
                 scores[0].append(tscore)
                 scores[1].append(lscore)
-                print("Epoch {}/{} done! Cost: {}".format(epoch, epochs, lcost))
+                print("Epoch {}/{} done! Cost: {}".format(epoch, eps, lcost))
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
 
         return scores
@@ -238,20 +238,20 @@ def dreamtest():
     img1.show()
 
 
-learning_table_to_use = "onezeroctr.pkl.gz"
-network_class = FFNetThinkster
+learning_table_to_use = "xonezero.pkl.gz"
+network_class = CNNexplicit
 
 # Paramters for the data wrapper
 crossval = 0.2
-pca = 500
-standardize = False
-reshape = False
+pca = 0
+standardize = True
+reshape = True
 simplify_to_binary = False
 
 # Parameters for the neural network
-hiddens = (120, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (180, 80)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 100
+epochs = 30
 drop = 0.0  # Chance of dropout (if there are droplayers)
 batch_size = 20
 eta = 0.3

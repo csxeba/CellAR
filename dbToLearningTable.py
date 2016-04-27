@@ -1,49 +1,54 @@
 import os
-import random
 import sqlite3 as sql
 
 import numpy as np
 from PIL import Image
 
+from csxnet.datamodel import shuffle
 
 dbspath = "/data/Prog/Diploma/ClassByCsa/"
 sliceroot = "/data/Prog/data/raw/"
-processing = "bgs"
+processing = "tiles"
 slicepath = sliceroot + processing + "/"
+
 
 def fetchrecs(db):
     conn = sql.connect(dbspath + db)
     c = conn.cursor()
     c.execute("SELECT filename, divs FROM lessons WHERE divs = 1;")
-    recs = c.fetchall()
+    ones = c.fetchall()
     c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
     zeros = c.fetchall()
     conn.close()
-    recs.extend(zeros[:len(recs)])
-    # recs.extend(zeros)
-    random.shuffle(recs)
-    print("Fetched {} records!".format(len(recs)))
+    print("Fetched {} records!".format(len(ones)+len(zeros)))
 
-    return recs
+    return ones, zeros
 
 
-def slices_to_lessons(recbatch):
+def slices_to_lessons(ones, zeros):
     print("Converting slices to learning table...")
-    questions = np.zeros((len(recbatch), 60, 60, 1), dtype=np.float32)
-    answers = np.zeros((len(recbatch,)), dtype=int)
-    for i, rec in enumerate(recbatch):
+    div1 = np.zeros((len(ones), 60, 60, 1), dtype=np.float32)
+    div1m = np.zeros((len(ones), 60, 60, 1), dtype=np.float32)
+    div0 = np.zeros((len(ones) * 2, 60, 60, 1), dtype=np.float32)
+    answ1 = np.ones((len(ones) * 2,), dtype=np.int32)
+    answ0 = np.zeros_like(answ1, dtype=np.int32)
+
+    for i, rec in enumerate(ones):
         path = slicepath + rec[0]
         img = Image.open(path)
-        questions[i] = np.array(img)[..., [0]]
-        answers[i] = int(rec[1])
+        div1[i] = np.array(img)[..., [0]]
+        div1m[i] = np.fliplr(div1[i])
+    i = 0
+    while i < len(ones)*2:
+        path = slicepath + zeros[i][0]
+        img = Image.open(path)
+        div0[i] = np.array(img)[..., [0]]
+        i += 1
+
     print("Created learning table in memory")
-    return questions.reshape((len(recbatch), 1, 60, 60)), answers
-
-
-def lessons_to_learning_table(less):
-    questions = np.concatenate([l[0] for l in less])
-    answers = np.concatenate([l[1] for l in less])
-    return questions, answers
+    questions = np.concatenate((div1, div1m, div0))
+    answers = np.concatenate((answ1, answ0))
+    return questions.reshape((questions.shape[0], 1, 60, 60)), answers
 
 
 def dump_learning_table(lt):
@@ -57,10 +62,11 @@ def dump_learning_table(lt):
 
 
 if __name__ == '__main__':
-    records = []    
-    flz = os.listdir(dbspath)
-    for recset in map(fetchrecs, flz):
-        records += recset
-    lessons = slices_to_lessons(records)
+    ones, zeros = [], []
+    for ons, zrs in map(fetchrecs, os.listdir(dbspath)):
+        ones += ons
+        zeros += zrs
+    lessons = slices_to_lessons(ones, zeros)
+    lessons = shuffle(lessons)
     dump_learning_table(lessons)
     print("Learning table saved as learning_table.pkl.gz")
