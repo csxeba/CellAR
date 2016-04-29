@@ -238,7 +238,7 @@ def dreamtest():
     img1.show()
 
 
-learning_table_to_use = "xonezero.pkl.gz"
+learning_table_to_use = "onezero.pkl.gz"
 network_class = CNNexplicit
 
 # Paramters for the data wrapper
@@ -251,7 +251,7 @@ simplify_to_binary = False
 # Parameters for the neural network
 hiddens = (180, 80)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 30
+epochs = 100
 drop = 0.0  # Chance of dropout (if there are droplayers)
 batch_size = 20
 eta = 0.3
@@ -264,7 +264,11 @@ cost = "MSE"  # MSE / Xent cost functions supported
 
 if __name__ == '__main__':
     start = time.time()
-    run()
+    network = run()
     print("Run took {} seconds".format(int(time.time()-start)))
-    # dreamtest()
-    # sanity_check()
+
+    import pickle
+    outfl = open("autosave.bro", "wb")
+    pickle.dump(network, outfl)
+    outfl.close()
+
