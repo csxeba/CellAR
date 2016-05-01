@@ -1,6 +1,7 @@
 """Cell division detection with Artificial Neural Networks"""
 import sys
 import time
+import os
 
 from csxnet.datamodel import CData
 from csxnet.brainforge.Architecture.NNModel import Network
@@ -15,7 +16,7 @@ ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/
 class CNNexplicit(ConvNetExplicit):
     def __init__(self, data, rate, l1, l2, momentum, costfn):
         nfilters = 2
-        cfshape = (5, 5)
+        cfshape = (3, 3)
         pool = 2
         hidden1, hidden2 = hiddens[0], hiddens[1]
         costfn = "MSE" if costfn is MSE else "Xent"
@@ -109,6 +110,8 @@ class FFNetThinkster(Network):
                 scores[1].append(self.evaluate("learning"))
                 print("Epoch {}/{} done! Err: {}".format(epoch, eps, self.error))
                 print("Acc:", scores[0][-1], scores[1][-1])
+            if epoch == eps:
+                self.evaluate()
 
         return scores
 
@@ -119,6 +122,8 @@ def run():
 
     print("Building network...")
     net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
+
+    print("Initial score:", net.evaluate())
 
     net.describe(1)
 
@@ -142,6 +147,45 @@ def run():
         score[1].extend(ns[1])
 
     return net
+
+
+def run2(path_to_lt, runs=5):
+    scores = []
+    for r in range(1, runs+1):
+        start = time.time()
+
+        print("Wrapping learning data...")
+        myData = wrap_data()
+
+        print("Building network...")
+        net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
+
+        net.train(epochs, batch_size)
+        scores.append(net.evaluate())
+        print("Run {} took {} seconds".format(r, int(time.time()-start)))
+
+    print("SCORES:")
+    print(scores)
+    return scores
+
+
+def longrun(runs=10):
+    lts = "/data/Prog/data/lts/"
+    logchain = ""
+    for lt in os.listdir(lts):
+        logchain += "----------\nDATASET: {}\n".format(lt)
+        for r in range(1, 1+runs):
+            start = time.time()
+            myData = wrap_data(lts + lt)
+            net = CNNexplicit(myData, eta, 0.0, 0.0, 0.0, "Xent")
+            logchain += "RUN {} INITIAL SCORE: {}\n".format(r, str(net.evaluate()[1]))
+            net.train(epochs, batch_size)
+            logchain += "RUN {}  FINAL  SCORE: {}\n".format(r, str(net.evaluate()[1]))
+            logchain != "Time: {} s".format(int(time.time() - start))
+    print("Finished run!")
+    logfl = open("log.txt", "w")
+    logfl.write(logchain)
+    logfl.close()
 
 
 def sanity_check():
@@ -169,24 +213,24 @@ def sanity_check():
     print("Training Neural Network...")
     score = net.train(eps=no_epochs, bsize=bsize)
 
-    while 1:
-        net.describe()
-        display(score)
-        more = int(input("More? How much epochs?\n> "))
+    # while 1:
+    #     net.describe()
+    #     display(score)
+    #     more = int(input("More? How much epochs?\n> "))
+    #
+    #     if more < 1:
+    #         break
+    #
+    #     ns = net.train(int(more), bsize)
+    #     score[0].extend(ns[0])
+    #     score[1].extend(ns[1])
 
-        if more < 1:
-            break
 
-        ns = net.train(int(more), bsize)
-        score[0].extend(ns[0])
-        score[1].extend(ns[1])
-
-
-def wrap_data():
+def wrap_data(path_to_lt):
     import pickle
     import gzip
 
-    f = gzip.open(ltpath + learning_table_to_use, "rb")
+    f = gzip.open(path_to_lt, "rb")
     questions, targets = pickle.load(f)
     questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
     f.close()
@@ -210,65 +254,49 @@ def wrap_data():
 
 def display(score):
     import matplotlib.pyplot as plt
-    X = np.arange(len(score[0]))
+    X = np.arange(1, len(score[0])+1)
     plt.plot(X, score[0], "b", label="T")
     plt.plot(X, score[1], "r", label="L")
     plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                ncol=2, mode="expand", borderaxespad=0.)
-    plt.axis([0, X.max(), 0.0, 1.0])
+    plt.axis([1, X.max(), 0.0, 1.0])
     plt.show()
 
 
-def dreamtest():
-    """Fooling around instead of doing the actual work..."""
-    from PIL import Image
-
-    if network_class is ConvNetDynamic:
-        raise NotImplementedError("thCNNs can't <yet?> dream...")
-
-    net = run()
-    trgts = np.array([[0, 1], [1, 0]])
-    sheep = net.dream(trgts)
-    sheep = net.data.pca.inverse_transform(sheep).astype(int)
-    sheep0 = np.array([sheep[0] for _ in range(3)])
-    sheep1 = np.array([sheep[1] for _ in range(3)])
-    img0 = Image.fromarray(sheep0, mode="RGB")
-    img1 = Image.fromarray(sheep1, mode="RGB")
-    img0.show()
-    img1.show()
+def savebrain(brain, flname="autosave.bro"):
+    import pickle
+    outfl = open(flname, "wb")
+    pickle.dump(brain, outfl)
+    outfl.close()
 
 
-learning_table_to_use = "onezero.pkl.gz"
-network_class = CNNexplicit
+network_class = FFNetThinkster
 
 # Paramters for the data wrapper
-crossval = 0.2
+crossval = 0.3
 pca = 0
 standardize = True
 reshape = True
-simplify_to_binary = False
+simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (180, 80)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 100
-drop = 0.0  # Chance of dropout (if there are droplayers)
-batch_size = 20
-eta = 0.3
+epochs = 250
+drop = 0.5  # Chance of dropout (if there are droplayers)
+batch_size = 10
+eta = 0.03
 lmbd1 = 0.0
 lmbd2 = 0.0
 mu = 0.0
-act_fn_H = "sigmoid"  # Activation function of hidden layers
-cost = "MSE"  # MSE / Xent cost functions supported
+act_fn_H = "tanh"  # Activation function of hidden layers
+cost = "Xent"  # MSE / Xent cost functions supported
 
 
 if __name__ == '__main__':
-    start = time.time()
-    network = run()
-    print("Run took {} seconds".format(int(time.time()-start)))
+    # sanity_check()
+    longrun(10)
+    # run2(5)
 
-    import pickle
-    outfl = open("autosave.bro", "wb")
-    pickle.dump(network, outfl)
-    outfl.close()
+
 
