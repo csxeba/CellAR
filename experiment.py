@@ -173,15 +173,19 @@ def longrun(runs=10):
     lts = "/data/Prog/data/lts/"
     logchain = ""
     for lt in os.listdir(lts):
+        print("\nDATASET:", lt)
         logchain += "----------\nDATASET: {}\n".format(lt)
         for r in range(1, 1+runs):
+            runchain = ""
             start = time.time()
             myData = wrap_data(lts + lt)
-            net = CNNexplicit(myData, eta, 0.0, 0.0, 0.0, "Xent")
-            logchain += "RUN {} INITIAL SCORE: {}\n".format(r, str(net.evaluate()[1]))
+            net = FFNetThinkster(myData, eta, 0.0, 0.0, 0.0, "Xent")
+            runchain += "RUN {} INITIAL SCORE: {}\n".format(r, str(net.evaluate()))
             net.train(epochs, batch_size)
-            logchain += "RUN {}  FINAL  SCORE: {}\n".format(r, str(net.evaluate()[1]))
-            logchain != "Time: {} s".format(int(time.time() - start))
+            runchain += "RUN {}  FINAL  SCORE: {}\n".format(r, str(net.evaluate()))
+            runchain += "Time: {} s\n".format(int(time.time() - start))
+            print("_____\n" + runchain + "______")
+            logchain += runchain
     print("Finished run!")
     logfl = open("log.txt", "w")
     logfl.write(logchain)
@@ -270,8 +274,6 @@ def savebrain(brain, flname="autosave.bro"):
     outfl.close()
 
 
-network_class = FFNetThinkster
-
 # Paramters for the data wrapper
 crossval = 0.3
 pca = 0
@@ -280,9 +282,9 @@ reshape = True
 simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (300, 180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 250
+epochs = 30
 drop = 0.5  # Chance of dropout (if there are droplayers)
 batch_size = 10
 eta = 0.03
@@ -295,7 +297,7 @@ cost = "Xent"  # MSE / Xent cost functions supported
 
 if __name__ == '__main__':
     # sanity_check()
-    longrun(10)
+    longrun(5)
     # run2(5)
 
 
