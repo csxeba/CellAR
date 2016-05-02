@@ -1,16 +1,17 @@
 import os
+import sys
 import sqlite3 as sql
-import random
 import pickle
 import gzip
 
 import numpy as np
 from PIL import Image
 
+dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
+dbspath = "D:/Data/dbs/" if sys.platform == "win32" else "/data/Prog/Diploma/ClassByCsa/"
 
-dbspath = "/data/Prog/Diploma/ClassByCsa/"
-sliceroot = "/data/Prog/data/raw/"
-outroot = "/data/Prog/data/lts/"
+sliceroot = dataroot + "raw/"
+outroot = dataroot + "lts/"
 
 
 def fetchbig(dbs, processing):
@@ -142,4 +143,4 @@ def generate_all():
     print("Done!")
 
 if __name__ == '__main__':
-    generate_all()
+    fetchsmall(os.listdir(dbspath), "raw")

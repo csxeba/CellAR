@@ -9,8 +9,9 @@ from csxnet.brainforge.Utility.cost import Xent, MSE
 from csxnet.brainforge.Utility.activations import *
 from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
 
-
-ltpath = "/data/Prog/data/learning_tables/" if sys.platform != "win32" else "D:/Data/learning_tables/"
+dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
+ltroot = dataroot + "learning_tables/"
+brainroot = dataroot + "brains/"
 
 
 class CNNexplicit(ConvNetExplicit):
@@ -19,6 +20,8 @@ class CNNexplicit(ConvNetExplicit):
         cfshape = (3, 3)
         pool = 2
         hidden1, hidden2 = hiddens[0], hiddens[1]
+        if not isinstance(costfn, str):
+            costfn = str(costfn())
         costfn = "MSE" if costfn is MSE else "Xent"
         ConvNetExplicit.__init__(self, data, rate, l1, l2,
                                  nfilters, cfshape, pool,
@@ -41,6 +44,12 @@ class CNNexplicit(ConvNetExplicit):
                 print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
 
         return scores
+
+    def save(self, path):
+        import pickle
+        outfl = open(path, "wb")
+        pickle.dump(self, outfl)
+        outfl.close()
 
 
 class CNNdynamic(ConvNetDynamic):
@@ -116,9 +125,9 @@ class FFNetThinkster(Network):
         return scores
 
 
-def run():
+def run(lt):
     print("Wrapping learning data...")
-    myData = wrap_data()
+    myData = wrap_data(ltroot + lt)
 
     print("Building network...")
     net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
@@ -155,7 +164,7 @@ def run2(path_to_lt, runs=5):
         start = time.time()
 
         print("Wrapping learning data...")
-        myData = wrap_data()
+        myData = wrap_data(path_to_lt)
 
         print("Building network...")
         net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
@@ -207,7 +216,7 @@ def sanity_check():
     bsize = 10
 
     print("Pulling data...")
-    mnistlt = mnist_to_lt(ltpath+"mnist.pkl.gz")
+    mnistlt = mnist_to_lt(ltroot + "mnist.pkl.gz")
     mnistdata = CData(mnistlt, cross_val=.1)
     del mnistlt
 
@@ -217,17 +226,17 @@ def sanity_check():
     print("Training Neural Network...")
     score = net.train(eps=no_epochs, bsize=bsize)
 
-    # while 1:
-    #     net.describe()
-    #     display(score)
-    #     more = int(input("More? How much epochs?\n> "))
-    #
-    #     if more < 1:
-    #         break
-    #
-    #     ns = net.train(int(more), bsize)
-    #     score[0].extend(ns[0])
-    #     score[1].extend(ns[1])
+    while 1:
+        net.describe()
+        display(score)
+        more = int(input("More? How much epochs?\n> "))
+
+        if more < 1:
+            break
+
+        ns = net.train(int(more), bsize)
+        score[0].extend(ns[0])
+        score[1].extend(ns[1])
 
 
 def wrap_data(path_to_lt):
@@ -273,6 +282,8 @@ def savebrain(brain, flname="autosave.bro"):
     pickle.dump(brain, outfl)
     outfl.close()
 
+network_class = FFNetThinkster
+learning_table = "cssmall.pkl.gz"
 
 # Paramters for the data wrapper
 crossval = 0.3
@@ -297,8 +308,7 @@ cost = "Xent"  # MSE / Xent cost functions supported
 
 if __name__ == '__main__':
     # sanity_check()
-    longrun(5)
+    network = run(learning_table)
+    network.save(brainroot + "autosave.bro")
+    # longrun(5)
     # run2(5)
-
-
-
