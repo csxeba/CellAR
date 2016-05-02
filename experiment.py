@@ -10,7 +10,7 @@ from csxnet.brainforge.Utility.activations import *
 from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
 
 dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
-ltroot = dataroot + "lts/"
+ltroot = dataroot + "learning_tables/"
 brainroot = dataroot + "brains/"
 
 
@@ -249,7 +249,7 @@ def wrap_data(path_to_lt):
     f.close()
 
     if simplify_to_binary:
-        np.equal(targets, True, targets)
+        np.greater_equal(targets, 1, out=targets)
 
     lt = questions.astype(float), targets.astype(int)
 
@@ -283,17 +283,17 @@ def savebrain(brain, flname="autosave.bro"):
     outfl.close()
 
 network_class = FFNetThinkster
-learning_table = "small_raw.pkl.gz"
+learning_table = "cslt.pkl.gz"
 
 # Paramters for the data wrapper
 crossval = 0.3
-pca = 300
-standardize = False
+pca = 0
+standardize = True
 reshape = False
 simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (300, 180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
 epochs = 30
 drop = 0.5  # Chance of dropout (if there are droplayers)
@@ -309,6 +309,6 @@ cost = "Xent"  # MSE / Xent cost functions supported
 if __name__ == '__main__':
     # sanity_check()
     network = run(learning_table)
-    network.save(brainroot + "autosave.bro")
+    # network.save(brainroot + "autosave.bro")
     # longrun(5)
     # run2(5)

@@ -1,8 +1,6 @@
 import pickle
 import sys
 
-from experiment import CNNexplicit
-
 dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
 
 brainroot = "brains/"
