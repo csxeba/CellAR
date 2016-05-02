@@ -1,8 +1,10 @@
 import os
 import sys
-import sqlite3 as sql
+import time
 import pickle
 import gzip
+import sqlite3 as sql
+import random
 
 import numpy as np
 from PIL import Image
@@ -45,8 +47,9 @@ def fetchsmall(dbs, processing):
         c.execute("SELECT filename, divs FROM lessons WHERE divs > 0;")
         positive = c.fetchall()
         c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
-        zero = c.fetchall()[:len(positive)]
-        recs.extend(positive + zero)
+        zero = c.fetchall()
+        random.shuffle(zero)
+        recs.extend(positive + zero[:len(positive)])
         conn.close()
 
     print("Converting slices to learning table...")
@@ -71,9 +74,10 @@ def fetchonezero(dbs, processing):
         c.execute("SELECT filename, divs FROM lessons WHERE divs = 1;")
         ones = c.fetchall()
         c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
-        zeros = c.fetchall()[:len(ones)]
+        zeros = c.fetchall()
+        random.shuffle(zeros)
         conn.close()
-        recs.extend(ones + zeros)
+        recs.extend(ones + zeros[:len(ones)])
 
     print("Converting slices to learning table...")
     div = np.zeros((len(recs), 60, 60, 1), dtype=np.float32)
@@ -100,6 +104,7 @@ def fetchxonezero(dbs, processing):
         c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
         zeros.extend(c.fetchall())
         conn.close()
+    random.shuffle(zeros)
 
     print("Converting slices to learning table...")
     div1 = np.zeros((len(ones), 60, 60, 1), dtype=np.float32)
@@ -128,6 +133,7 @@ def fetchxonezero(dbs, processing):
 
 
 def generate_all():
+    start = time.time()
     prc = ["tiles", "ctr", "convd", "bgs"]
     data = ["big", "small", "onezero", "xonezero"]
 
@@ -135,12 +141,18 @@ def generate_all():
         for dataset in data:
             method = {"b": fetchbig, "s": fetchsmall, "o": fetchonezero, "x": fetchxonezero}[dataset[0]]
             lt = method(os.listdir(dbspath), processing + "/")
+            dump_lt(lt, dataset + "_" + processing + ".pkl.gz")
 
-            f = gzip.open(outroot + dataset + "_" + processing + ".pkl.gz", "wb")
-            print("Dumping", dataset + "-" + processing)
-            pickle.dump(lt, f)
-            f.close()
-    print("Done!")
+    print("Done generating all learning tables in {}s!".format(int(time.time()-start)))
+
+
+def dump_lt(lt, flname):
+    fl = gzip.open(outroot + flname, "wb")
+    print("Dumping", flname)
+    pickle.dump(lt, fl)
+    fl.close()
+
 
 if __name__ == '__main__':
-    fetchsmall(os.listdir(dbspath), "raw")
+    slt = fetchsmall(os.listdir(dbspath), "tiles/")
+    dump_lt(slt, "small_raw.pkl.gz")
