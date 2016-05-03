@@ -132,6 +132,47 @@ def fetchxonezero(dbs, processing):
     return questions.reshape((questions.shape[0], 1, 60, 60)), answers
 
 
+def fetchxsmall(dbs, processing):
+    positivity = []
+    zeros = []
+    for db in dbs:
+        conn = sql.connect(dbspath + db)
+        c = conn.cursor()
+        c.execute("SELECT filename, divs FROM lessons WHERE divs > 0;")
+        positivity.extend(c.fetchall())
+        c.execute("SELECT filename, divs FROM lessons WHERE divs = 0;")
+        zeros.extend(c.fetchall())
+        conn.close()
+
+    random.shuffle(zeros)
+
+    print("Converting slices to learning table...")
+    div = np.zeros((len(positivity), 60, 60, 1), dtype=np.float32)
+    divm = np.zeros((len(positivity), 60, 60, 1), dtype=np.float32)
+    div0 = np.zeros((len(positivity)*2, 60, 60, 1), dtype=np.float32)
+    answ = np.zeros((len(positivity),), dtype=np.int32)
+    answ0 = np.zeros((len(positivity)*2,), dtype=np.int32)
+
+    for i, rec in enumerate(positivity):
+        path = sliceroot + processing + rec[0]
+        img = Image.open(path)
+        div[i] = np.array(img)[..., [0]]
+        divm[i] = np.fliplr(div[i])
+        answ[i] = int(rec[1])
+    div = np.concatenate((div, divm))
+    i = 0
+    while i < div.shape[0]:
+        path = sliceroot + processing + zeros[i][0]
+        img = Image.open(path)
+        div0[i] = np.array(img)[..., [0]]
+        i += 1
+    div = np.concatenate((div, div0))
+    answ = np.concatenate((answ, answ, answ0))
+
+    print("Created XSMALL learning table in memory")
+    return div.reshape((div.shape[0], 1, 60, 60)), answ
+
+
 def generate_all():
     start = time.time()
     prc = ["tiles", "ctr", "convd", "bgs"]
@@ -147,12 +188,13 @@ def generate_all():
 
 
 def dump_lt(lt, flname):
-    fl = gzip.open(outroot + flname, "wb")
     print("Dumping", flname)
+    fl = gzip.open(outroot + flname, "wb")
     pickle.dump(lt, fl)
     fl.close()
 
 
 if __name__ == '__main__':
-    slt = fetchsmall(os.listdir(dbspath), "tiles/")
-    dump_lt(slt, "small_raw.pkl.gz")
+    for prc in ("tiles", "ctr", "convd", "bgs"):
+        slt = fetchxsmall(os.listdir(dbspath), prc + "/")
+        dump_lt(slt, "xsmall_{}.pkl.gz".format(prc))

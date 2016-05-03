@@ -1,6 +1,7 @@
 """Cell division detection with Artificial Neural Networks"""
 import sys
 import time
+import datetime
 import os
 
 from csxnet.datamodel import CData
@@ -10,7 +11,7 @@ from csxnet.brainforge.Utility.activations import *
 from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
 
 dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
-ltroot = dataroot + "learning_tables/"
+ltroot = dataroot + "lts/"
 brainroot = dataroot + "brains/"
 
 
@@ -105,7 +106,7 @@ class FFNetThinkster(Network):
                 self.add_fc(h, activation=actfn)
             if isinstance(h, str) and h:
                 h = int(h[:-1])
-                self.add_drop(h, drop, activation=ReL)
+                self.add_drop(h, drop, activation=actfn)
         self.finalize_architecture()
 
     def train(self, eps, bsize):
@@ -142,7 +143,7 @@ def run(lt):
         net.describe()
         display(score)
 
-        more = int(input("----------\nMore? How much epochs?\n> "))
+        more = input("----------\nMore? How much epochs?\n> ")
         try:
             more = int(more)
         except ValueError:
@@ -158,15 +159,13 @@ def run(lt):
     return net
 
 
-def run2(path_to_lt, runs=5):
+def run2(lt, runs=5):
     scores = []
     for r in range(1, runs+1):
+        print("----------\nRun {}/{}".format(r, runs))
         start = time.time()
 
-        print("Wrapping learning data...")
-        myData = wrap_data(path_to_lt)
-
-        print("Building network...")
+        myData = wrap_data(ltroot + lt)
         net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
 
         net.train(epochs, batch_size)
@@ -181,7 +180,7 @@ def run2(path_to_lt, runs=5):
 def longrun(runs=10):
     lts = "/data/Prog/data/lts/"
     logchain = ""
-    for lt in os.listdir(lts):
+    for lt in [l for l in os.listdir(lts) if "xsmall_" in l]:
         print("\nDATASET:", lt)
         logchain += "----------\nDATASET: {}\n".format(lt)
         for r in range(1, 1+runs):
@@ -268,11 +267,14 @@ def wrap_data(path_to_lt):
 def display(score):
     import matplotlib.pyplot as plt
     X = np.arange(1, len(score[0])+1)
-    plt.plot(X, score[0], "b", label="T")
-    plt.plot(X, score[1], "r", label="L")
+    plt.plot(X, score[0], "b", label="Teszt adatsor")
+    plt.plot(X, score[1], "r", label="Tanuló adatsor")
     plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                ncol=2, mode="expand", borderaxespad=0.)
-    plt.axis([1, X.max(), 0.0, 1.0])
+    plt.axis([X.min(), X.max(), 0.5, 1.0])
+    plt.xlabel("Tanulókorszakok száma")
+    plt.ylabel("Helyes predikciók aránya")
+
     plt.show()
 
 
@@ -282,20 +284,64 @@ def savebrain(brain, flname="autosave.bro"):
     pickle.dump(brain, outfl)
     outfl.close()
 
+
+def configuration(args):
+    assert len(args) == 12
+    hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, \
+    actfn, costfn, architecture = args
+    scores = []
+    now = datetime.datetime.now()
+    logchain = "\n" + now.strftime("%Y.%m.%d. %H:%M") + "\n"
+    logchain += "-*-*-*- CONFIGURATION -*-*-*-\n"
+    logchain += "hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture\n"
+    logchain += str(args) + "\n"
+    logchain += "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-\n"
+
+    globstart = time.time()
+
+    for r in range(1, runs + 1):
+        print("Run {}/{}".format(r, runs))
+        logchain += "----------\nRun {}/{}\n".format(r, runs)
+        start = time.time()
+
+        myData = wrap_data(ltroot + learning_table)
+        net = architecture(myData, eta, lmbd1, lmbd2, mu, cost)
+
+        net.train(epochs, batch_size)
+        scores.append(net.evaluate())
+        print("-----\nRun {} took {} seconds".format(r, int(time.time() - start)))
+        logchain += "ACCT: {}\nACCL: {}\n".format(net.evaluate(), net.evaluate("learning"))
+        logchain += "----------\n"
+
+    print("SCORES:", str(scores))
+    print("SCORES AVG: {}, STD: {}".format(np.mean(scores), np.std(scores)))
+    print("*******************")
+    logchain += "*** FINISHED RUNNING CONFIGURATION! ***\n"
+    logchain += "SCORES: " + str(scores) + "\n"
+    logchain += "SCORES AVG: {}, STD: {}\n".format(np.mean(scores), np.std(scores))
+    logchain += "TIME   AVG: {}\n".format(int((time.time()-globstart) / runs))
+    logchain += "***************************************\n"
+
+    logfl = open("logs/log.txt", "a")
+    logfl.write(logchain)
+    logfl.close()
+
+    return logchain
+
 network_class = FFNetThinkster
-learning_table = "cslt.pkl.gz"
+learning_table = "xonezero_bgs.pkl.gz"
 
 # Paramters for the data wrapper
 crossval = 0.3
 pca = 0
 standardize = True
-reshape = False
+reshape = True
 simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (300, 180, 60)  # string entry of format "60d" means a dropout layer with 60 neurons
+hiddens = (300,)  # string entry of format "60d" means a dropout layer with 60 neurons
 aepochs = 0  # Autoencode for this many epochs
-epochs = 30
+epochs = 20
 drop = 0.5  # Chance of dropout (if there are droplayers)
 batch_size = 10
 eta = 0.03
@@ -305,10 +351,16 @@ mu = 0.0
 act_fn_H = "tanh"  # Activation function of hidden layers
 cost = "Xent"  # MSE / Xent cost functions supported
 
+# configuration: hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture
+conf0 = (300, 120, 60), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+
+econf1 = (300, ), 0, 10, 20, 10, 0.3, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+econf2 = (300, ), 0, 10, 20, 10, 0.1, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+econf3 = (300, ), 0, 10, 20, 10, 0.01, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+econf4 = (300, ), 0, 10, 20, 10, 0.003, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+econf5 = (300, ), 0, 10, 20, 10, 0.001, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
 
 if __name__ == '__main__':
-    # sanity_check()
-    network = run(learning_table)
-    # network.save(brainroot + "autosave.bro")
-    # longrun(5)
-    # run2(5)
+    for i, conf in enumerate((econf1, econf2, econf3, econf4, econf5)):
+        print("\n*** CONFIG {} ***".format(i+1))
+        configuration(conf)
