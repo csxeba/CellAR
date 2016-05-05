@@ -16,16 +16,14 @@ brainroot = dataroot + "brains/"
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, rate, l1, l2, momentum, costfn):
-        nfilters = 2
-        cfshape = (3, 3)
-        pool = 2
-        hidden1, hidden2 = hiddens[0], hiddens[1]
+    def __init__(self, data, hiddens, conv, pool, filters, rate, l1, l2, momentum, costfn):
+        cfshape = (conv, conv)
+        hidden1, hidden2 = hiddens
         if not isinstance(costfn, str):
             costfn = str(costfn())
         costfn = "MSE" if costfn is MSE else "Xent"
         ConvNetExplicit.__init__(self, data, rate, l1, l2,
-                                 nfilters, cfshape, pool,
+                                 filters, cfshape, pool,
                                  hidden1, hidden2,
                                  costfn)
 
@@ -88,11 +86,11 @@ class CNNdynamic(ConvNetDynamic):
 
 
 class FFNetThinkster(Network):
-    def __init__(self, data, lrate, l1, l2, momentum, costfn):
+    def __init__(self, data, hiddens, lrate, l1, l2, momentum, act_fn_H, costfn):
         if isinstance(costfn, str):
             costfn = {"mse": MSE, "xent": Xent}[costfn.lower()]
         else:
-            costfn = cost
+            costfn = costfn
         if isinstance(act_fn_H, str):
             actfn = {"sig": Sigmoid, "tan": Tanh,
                      "rel": ReL, "lin": Linear}[act_fn_H[:3]]
@@ -177,7 +175,7 @@ def run2(lt, runs=5):
     return scores
 
 
-def longrun(runs=10):
+def FClongrun(runs=10):
     lts = "/data/Prog/data/lts/"
     logchain = ""
     for lt in [l for l in os.listdir(lts) if "xsmall_" in l]:
@@ -286,6 +284,13 @@ def savebrain(brain, flname="autosave.bro"):
 
 
 def configuration(args):
+    if args[-1] is FFNetThinkster:
+        FCconfiguration(args)
+    else:
+        Cconfiguration(args)
+
+
+def FCconfiguration(args):
     assert len(args) == 12
     hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, \
     actfn, costfn, architecture = args
@@ -300,17 +305,62 @@ def configuration(args):
     globstart = time.time()
 
     for r in range(1, runs + 1):
-        print("Run {}/{}".format(r, runs))
+        print("\nRun {}/{}".format(r, runs))
         logchain += "----------\nRun {}/{}\n".format(r, runs)
         start = time.time()
 
         myData = wrap_data(ltroot + learning_table)
-        net = architecture(myData, eta, lmbd1, lmbd2, mu, cost)
+        net = architecture(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, cost)
+        net.describe(1)
 
         net.train(epochs, batch_size)
         scores.append(net.evaluate())
-        print("-----\nRun {} took {} seconds".format(r, int(time.time() - start)))
+        print("----- Run {} took {} seconds".format(r, int(time.time() - start)))
         logchain += "ACCT: {}\nACCL: {}\n".format(net.evaluate(), net.evaluate("learning"))
+        logchain += "----------\n"
+
+    print("SCORES:", str(scores))
+    print("SCORES AVG: {}, STD: {}".format(np.mean(scores), np.std(scores)))
+    print("*******************")
+    logchain += "*** FINISHED RUNNING CONFIGURATION! ***\n"
+    logchain += "SCORES: " + str(scores) + "\n"
+    logchain += "SCORES AVG: {}, STD: {}\n".format(np.mean(scores), np.std(scores))
+    logchain += "TIME   AVG: {}\n".format(int((time.time()-globstart) / runs))
+    logchain += "***************************************\n"
+
+    logfl = open("logs/log.txt", "a")
+    logfl.write(logchain)
+    logfl.close()
+
+    return logchain
+
+
+def Cconfiguration(args):
+    assert len(args) == 11
+    hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn = args
+    scores = []
+    now = datetime.datetime.now()
+    logchain = "\n" + now.strftime("%Y.%m.%d. %H:%M") + "\n"
+    logchain += "-*-*-*- CONFIGURATION -*-*-*-\n"
+    logchain += "hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn\n"
+    logchain += str(args) + "\n"
+    logchain += "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-\n"
+
+    globstart = time.time()
+
+    for r in range(1, runs + 1):
+        print("\nRun {}/{}".format(r, runs))
+        logchain += "----------\nRun {}/{}\n".format(r, runs)
+        start = time.time()
+
+        myData = wrap_data(ltroot + learning_table)
+        net = CNNexplicit(myData, hiddens, conv, pool, filters, eta, lmbd1, lmbd2, 0.0, costfn)
+        net.describe(1)
+
+        net.train(epochs, batch_size)
+        scores.append(net.evaluate()[1])
+        print("----- Run {} took {} seconds".format(r, int(time.time() - start)))
+        logchain += "ACCT: {}\nACCL: {}\n".format(net.evaluate()[1], net.evaluate("learning")[1])
         logchain += "----------\n"
 
     print("SCORES:", str(scores))
@@ -339,28 +389,17 @@ reshape = True
 simplify_to_binary = True
 
 # Parameters for the neural network
-hiddens = (300,)  # string entry of format "60d" means a dropout layer with 60 neurons
-aepochs = 0  # Autoencode for this many epochs
-epochs = 20
 drop = 0.5  # Chance of dropout (if there are droplayers)
-batch_size = 10
-eta = 0.03
-lmbd1 = 0.0
-lmbd2 = 0.0
-mu = 0.0
-act_fn_H = "tanh"  # Activation function of hidden layers
-cost = "Xent"  # MSE / Xent cost functions supported
 
-# configuration: hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture
-conf0 = (300, 120, 60), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+# configuration: hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn
+Fconf0 = (300, ), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+# configuration: hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn
+Cconf0 = (150, 75), 5, 2, 2, 5, 200, 20, 0.01, 0.0, 0.0, "Xent"
 
-econf1 = (300, ), 0, 10, 20, 10, 0.3, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
-econf2 = (300, ), 0, 10, 20, 10, 0.1, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
-econf3 = (300, ), 0, 10, 20, 10, 0.01, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
-econf4 = (300, ), 0, 10, 20, 10, 0.003, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
-econf5 = (300, ), 0, 10, 20, 10, 0.001, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+Cconf1 = (150, 75), 5, 2, 2, 5, 200, 20, 3.0, 0.0, 0.0, "Xent"
+Cconf2 = (150, 75), 5, 2, 2, 5, 200, 20, 1.0, 0.0, 0.0, "Xent"
 
 if __name__ == '__main__':
-    for i, conf in enumerate((econf1, econf2, econf3, econf4, econf5)):
+    for i, conf in enumerate((Cconf1, Cconf2)):
         print("\n*** CONFIG {} ***".format(i+1))
         configuration(conf)
