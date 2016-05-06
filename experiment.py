@@ -16,7 +16,7 @@ brainroot = dataroot + "brains/"
 
 
 class CNNexplicit(ConvNetExplicit):
-    def __init__(self, data, hiddens, conv, pool, filters, rate, l1, l2, momentum, costfn):
+    def __init__(self, data, hiddens, conv, filters, pool, rate, l1, l2, momentum, costfn):
         cfshape = (conv, conv)
         hidden1, hidden2 = hiddens
         if not isinstance(costfn, str):
@@ -124,12 +124,45 @@ class FFNetThinkster(Network):
         return scores
 
 
-def run(lt):
+def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn):
     print("Wrapping learning data...")
     myData = wrap_data(ltroot + lt)
 
     print("Building network...")
-    net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
+    net = network_class(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
+
+    print("Initial score:", net.evaluate())
+
+    net.describe(1)
+
+    score = net.train(epochs, batch_size)
+
+    while 1:
+        net.describe()
+        display(score)
+
+        more = input("----------\nMore? How much epochs?\n> ")
+        try:
+            more = int(more)
+        except ValueError:
+            print("Now you killed my script. Thanks.")
+            more = 0
+        if more < 1:
+            break
+
+        ns = net.train(more, batch_size)
+        score[0].extend(ns[0])
+        score[1].extend(ns[1])
+
+    return net
+
+
+def Crun(lt, hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn):
+    print("Wrapping learning data...")
+    myData = wrap_data(ltroot + lt)
+
+    print("Building network...")
+    net = CNNexplicit(myData, hiddens, conv, filters, pool, eta, lmbd1, lmbd2, 0.0, costfn)
 
     print("Initial score:", net.evaluate())
 
@@ -283,11 +316,13 @@ def savebrain(brain, flname="autosave.bro"):
     outfl.close()
 
 
-def configuration(args):
-    if args[-1] is FFNetThinkster:
-        FCconfiguration(args)
-    else:
-        Cconfiguration(args)
+def configuration(*confs):
+    for i, args in enumerate(confs):
+        print("\n*** CONFIG {} ***".format(i+1))
+        if args[-1] is FFNetThinkster:
+            FCconfiguration(args)
+        else:
+            Cconfiguration(args)
 
 
 def FCconfiguration(args):
@@ -310,7 +345,7 @@ def FCconfiguration(args):
         start = time.time()
 
         myData = wrap_data(ltroot + learning_table)
-        net = architecture(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, cost)
+        net = architecture(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
         net.describe(1)
 
         net.train(epochs, batch_size)
@@ -379,7 +414,7 @@ def Cconfiguration(args):
     return logchain
 
 network_class = FFNetThinkster
-learning_table = "xonezero_bgs.pkl.gz"
+learning_table = "xonezero_tiles.pkl.gz"
 
 # Paramters for the data wrapper
 crossval = 0.3
@@ -396,10 +431,8 @@ Fconf0 = (300, ), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThink
 # configuration: hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn
 Cconf0 = (150, 75), 5, 2, 2, 5, 200, 20, 0.01, 0.0, 0.0, "Xent"
 
-Cconf1 = (150, 75), 5, 2, 2, 5, 200, 20, 3.0, 0.0, 0.0, "Xent"
-Cconf2 = (150, 75), 5, 2, 2, 5, 200, 20, 1.0, 0.0, 0.0, "Xent"
+Fconf1 = (300, ), 0, 40, 20, 5, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+Cconf1 = (300, 75), 3, 3, 2, 100, 30, 10, 0.1, 0.0, 0.0, "Xent"
 
 if __name__ == '__main__':
-    for i, conf in enumerate((Cconf1, Cconf2)):
-        print("\n*** CONFIG {} ***".format(i+1))
-        configuration(conf)
+    configuration(Cconf1)
