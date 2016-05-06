@@ -2,8 +2,8 @@ from tkinter import *
 
 import numpy as np
 
-ltroot = "/data/Prog/data/learning_tables/"
-ltname = "onezero.pkl.gz"
+ltroot = "/data/Prog/data/lts/"
+ltname = "onezero_bgs.pkl.gz"
 
 
 class App(Tk):
@@ -41,7 +41,7 @@ class App(Tk):
         pic = Image.fromarray(img_data, mode="RGB")
         label = self.lt[1][self.progress]
         pic = pic.resize((pic.size[0] * 5, pic.size[1] * 5))
-        # pic.show()
+        pic.show()
         self.imaglab.configure(image=ImageTk.PhotoImage(pic))
         self.datalab.configure(text="Progress: {}; Divs: {}".format(self.progress, label))
 

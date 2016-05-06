@@ -1,27 +1,31 @@
 import PIL.Image as Img
 import numpy as np
 
-TIF_DEPTH = 57
+dataroot = "/data/Prog/data/raw/Diploma/"
 
-fullpath = "./data/660x480x57x8bit.tif"
-midpath = "./data/600x420x57x8bit_mid.tif"
-outpath = ".data/tiles/"
+fullpath = dataroot + "660x480x57x8bit.tif"
+midpath = dataroot + "600x420x57x8bit_mid.tif"
+outpath = dataroot + "tiles/"
 
 # Pulling a TIFF imagestack from HDD and slicing it up
 
 
-def pull_image(path: str, y: int, x: int):
+def pull_image(path: str, downscale=True):
     """The image is opened and converted to a 3D NumPy array
 
     The array is returned after feature scaling."""
-    out = np.zeros((TIF_DEPTH, y, x), dtype=np.float32)
     fimg = Img.open(path)
+    depth, x, y = fimg.n_frames, fimg.width, fimg.height
+    out = np.zeros((depth, y, x), dtype=np.float32)
 
-    for i in range(TIF_DEPTH):
+    for i in range(depth):
         fimg.seek(i)
         out[i] = np.array(fimg)
 
-    return out / 255
+    if downscale:
+        out /= 255
+
+    return out
 
 
 def slice_up(array):
@@ -45,9 +49,8 @@ def slice_up(array):
 def img_to_slices(inpath):
     """This method coordinates the Img-slices conversion"""
     this = "mid" if "mid" in inpath else "full"
-    shape = (420, 600) if this is "mid" else (480, 660)
     print("Pulling", this)
-    array = pull_image(inpath, *shape)
+    array = pull_image(inpath)
     print("Slicing", this)
     slices = slice_up(array)
     return slices
@@ -87,9 +90,9 @@ def main():
     # Some manual garbage collection
     del pool, results
 
-    # This section deals with some more massive paralellism
+    # This section deals with some more paralellism
     # The slices need to be written back to HDD, so the
-    # NumPy container array is chopped up and distributed
+    # NumPy container array can be chopped up and distributed
     # to the cores with a unique identifier and each one is
     #  written to a file
     jobs = mp.cpu_count() + 2

@@ -2,17 +2,24 @@
 import sys
 import time
 import datetime
-import os
 
 from csxnet.datamodel import CData
 from csxnet.brainforge.Architecture.NNModel import Network
 from csxnet.brainforge.Utility.cost import Xent, MSE
 from csxnet.brainforge.Utility.activations import *
-from csxnet.thNets.thANN import ConvNetExplicit, ConvNetDynamic
+from csxnet.thNets.thANN import ConvNetExplicit
+
 
 dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
 ltroot = dataroot + "lts/"
 brainroot = dataroot + "brains/"
+
+
+# Paramters for the data wrapper
+crossval = 0.3
+standardize = True
+reshape = True
+simplify_to_binary = True
 
 
 class CNNexplicit(ConvNetExplicit):
@@ -51,40 +58,6 @@ class CNNexplicit(ConvNetExplicit):
         outfl.close()
 
 
-class CNNdynamic(ConvNetDynamic):
-    def __init__(self, data, l_rate, l1, l2, momentum, costfn):
-        if data.pca:
-            raise RuntimeError("CNN received PCAd data...")
-
-        ConvNetDynamic.__init__(self, data, l_rate, l1, l2, momentum, costfn)
-
-        self.add_convpool(conv=3, filters=2, pool=2)
-        for hid in hiddens:
-            if isinstance(hid, str):
-                hid = int(hid[:-1])
-                print("DropoutLayer not yet implemented! Falling back to FCLayer!")
-            self.add_fc(hid, act_fn_H)
-
-        self.finalize()
-
-    def train(self, eps, bsize):
-        if bsize == "full":
-            print("ATTENTION! Learning in full batch mode! m =", self.data.N)
-            bsize = self.data.N
-        scores = [list(), list()]
-        for epoch in range(1, eps + 1):
-            self.learn(bsize)
-            if epoch % 1 == 0:
-                tcost, tscore = self.evaluate("testing")
-                lcost, lscore = self.evaluate("learning")
-                scores[0].append(tscore)
-                scores[1].append(lscore)
-                print("Epoch {}/{} done! Cost: {}".format(epoch, eps, lcost))
-                print("T: {}\tL: {}".format(scores[0][-1], scores[1][-1]))
-
-        return scores
-
-
 class FFNetThinkster(Network):
     def __init__(self, data, hiddens, lrate, l1, l2, momentum, act_fn_H, costfn):
         if isinstance(costfn, str):
@@ -116,7 +89,7 @@ class FFNetThinkster(Network):
             if epoch % 1 == 0:
                 scores[0].append(self.evaluate())
                 scores[1].append(self.evaluate("learning"))
-                print("Epoch {}/{} done! Err: {}".format(epoch, eps, self.error))
+                print("Epoch {}/{} done! Cost: {}".format(epoch, eps, self.error))
                 print("Acc:", scores[0][-1], scores[1][-1])
             if epoch == eps:
                 self.evaluate()
@@ -124,9 +97,9 @@ class FFNetThinkster(Network):
         return scores
 
 
-def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn):
+def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture):
     print("Wrapping learning data...")
-    myData = wrap_data(ltroot + lt)
+    myData = wrap_data(ltroot + lt, pca)
 
     print("Building network...")
     net = network_class(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
@@ -159,7 +132,7 @@ def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actf
 
 def Crun(lt, hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn):
     print("Wrapping learning data...")
-    myData = wrap_data(ltroot + lt)
+    myData = wrap_data(ltroot + lt, pca=0)
 
     print("Building network...")
     net = CNNexplicit(myData, hiddens, conv, filters, pool, eta, lmbd1, lmbd2, 0.0, costfn)
@@ -188,141 +161,6 @@ def Crun(lt, hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1,
         score[1].extend(ns[1])
 
     return net
-
-
-def run2(lt, runs=5):
-    scores = []
-    for r in range(1, runs+1):
-        print("----------\nRun {}/{}".format(r, runs))
-        start = time.time()
-
-        myData = wrap_data(ltroot + lt)
-        net = network_class(myData, eta, lmbd1, lmbd2, mu, cost)
-
-        net.train(epochs, batch_size)
-        scores.append(net.evaluate())
-        print("Run {} took {} seconds".format(r, int(time.time()-start)))
-
-    print("SCORES:")
-    print(scores)
-    return scores
-
-
-def FClongrun(runs=10):
-    lts = "/data/Prog/data/lts/"
-    logchain = ""
-    for lt in [l for l in os.listdir(lts) if "xsmall_" in l]:
-        print("\nDATASET:", lt)
-        logchain += "----------\nDATASET: {}\n".format(lt)
-        for r in range(1, 1+runs):
-            runchain = ""
-            start = time.time()
-            myData = wrap_data(lts + lt)
-            net = FFNetThinkster(myData, eta, 0.0, 0.0, 0.0, "Xent")
-            runchain += "RUN {} INITIAL SCORE: {}\n".format(r, str(net.evaluate()))
-            net.train(epochs, batch_size)
-            runchain += "RUN {}  FINAL  SCORE: {}\n".format(r, str(net.evaluate()))
-            runchain += "Time: {} s\n".format(int(time.time() - start))
-            print("_____\n" + runchain + "______")
-            logchain += runchain
-    print("Finished run!")
-    logfl = open("log.txt", "w")
-    logfl.write(logchain)
-    logfl.close()
-
-
-def sanity_check():
-    from csxnet.datamodel import mnist_to_lt
-
-    print("ATTENTION! This is a sanity test on MNIST data!")
-
-    lrate = 0.5
-    l1 = 2.0
-    l2 = 0.0
-    momentum = 0.9
-    costfn = "xent"
-
-    no_epochs = 10
-    bsize = 10
-
-    print("Pulling data...")
-    mnistlt = mnist_to_lt(ltroot + "mnist.pkl.gz")
-    mnistdata = CData(mnistlt, cross_val=.1)
-    del mnistlt
-
-    print("Building Neural Network...")
-    net = network_class(mnistdata, lrate, l1, l2, momentum, costfn)
-    net.describe(1)
-    print("Training Neural Network...")
-    score = net.train(eps=no_epochs, bsize=bsize)
-
-    while 1:
-        net.describe()
-        display(score)
-        more = int(input("More? How much epochs?\n> "))
-
-        if more < 1:
-            break
-
-        ns = net.train(int(more), bsize)
-        score[0].extend(ns[0])
-        score[1].extend(ns[1])
-
-
-def wrap_data(path_to_lt):
-    import pickle
-    import gzip
-
-    f = gzip.open(path_to_lt, "rb")
-    questions, targets = pickle.load(f)
-    questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
-    f.close()
-
-    if simplify_to_binary:
-        np.greater_equal(targets, 1, out=targets)
-
-    lt = questions.astype(float), targets.astype(int)
-
-    myData = CData(lt, cross_val=crossval, header=None, pca=pca)
-    if reshape:
-        assert not pca, "Why would you reshape PCA transformed data?"
-        myData.data = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
-        myData.split_data()
-    if standardize:
-        assert not pca, "Why would you standardize PCA transformed data?"
-        myData.standardize()
-
-    return myData
-
-
-def display(score):
-    import matplotlib.pyplot as plt
-    X = np.arange(1, len(score[0])+1)
-    plt.plot(X, score[0], "b", label="Teszt adatsor")
-    plt.plot(X, score[1], "r", label="Tanuló adatsor")
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-               ncol=2, mode="expand", borderaxespad=0.)
-    plt.axis([X.min(), X.max(), 0.5, 1.0])
-    plt.xlabel("Tanulókorszakok száma")
-    plt.ylabel("Helyes predikciók aránya")
-
-    plt.show()
-
-
-def savebrain(brain, flname="autosave.bro"):
-    import pickle
-    outfl = open(flname, "wb")
-    pickle.dump(brain, outfl)
-    outfl.close()
-
-
-def configuration(*confs):
-    for i, args in enumerate(confs):
-        print("\n*** CONFIG {} ***".format(i+1))
-        if args[-1] is FFNetThinkster:
-            FCconfiguration(args)
-        else:
-            Cconfiguration(args)
 
 
 def FCconfiguration(args):
@@ -413,26 +251,83 @@ def Cconfiguration(args):
 
     return logchain
 
-network_class = FFNetThinkster
-learning_table = "xonezero_tiles.pkl.gz"
 
-# Paramters for the data wrapper
-crossval = 0.3
-pca = 0
-standardize = True
-reshape = True
-simplify_to_binary = True
+def final_training(args):
+
+    data = wrap_data(learning_table, 0, 0)
+
+
+def wrap_data(path_to_lt, pca, cv=crossval):
+    import pickle
+    import gzip
+
+    f = gzip.open(path_to_lt, "rb")
+    questions, targets = pickle.load(f)
+    questions = questions.reshape(questions.shape[0], np.prod(questions.shape[1:]))
+    f.close()
+
+    if simplify_to_binary:
+        np.greater_equal(targets, 1, out=targets)
+
+    lt = questions.astype(float), targets.astype(int)
+
+    myData = CData(lt, cross_val=cv, header=None, pca=pca)
+    if reshape:
+        assert not pca, "Why would you reshape PCA transformed data?"
+        myData.data = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
+        myData.split_data()
+    if standardize:
+        assert not pca, "Why would you standardize PCA transformed data?"
+        myData.standardize()
+
+    return myData
+
+
+def display(score):
+    import matplotlib.pyplot as plt
+    X = np.arange(1, len(score[0])+1)
+    plt.plot(X, score[0], "b", label="Teszt adatsor")
+    plt.plot(X, score[1], "r", label="Tanuló adatsor")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+               ncol=2, mode="expand", borderaxespad=0.)
+    plt.axis([X.min(), X.max(), 0.5, 1.0])
+    plt.xlabel("Tanulókorszakok száma")
+    plt.ylabel("Helyes predikciók aránya")
+
+    plt.show()
+
+
+def savebrain(brain, flname="autosave.bro"):
+    import pickle
+    outfl = open(flname, "wb")
+    pickle.dump(brain, outfl)
+    outfl.close()
+
+
+def configuration(*confs):
+    for i, args in enumerate(confs):
+        print("\n*** CONFIG {} ***".format(i+1))
+        if args[-1] is FFNetThinkster:
+            FCconfiguration(args)
+        else:
+            Cconfiguration(args)
+
+network_class = FFNetThinkster
+learning_table = "xonezero_bgs.pkl.gz"
 
 # Parameters for the neural network
 drop = 0.5  # Chance of dropout (if there are droplayers)
 
-# configuration: hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn
-Fconf0 = (300, ), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
+# configuration: hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture
+# Fconf0 = (300, ), 0, 10, 20, 10, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
 # configuration: hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn
-Cconf0 = (150, 75), 5, 2, 2, 5, 200, 20, 0.01, 0.0, 0.0, "Xent"
+# Cconf0 = (150, 75), 5, 2, 2, 5, 200, 20, 0.01, 0.0, 0.0, "Xent"
 
 Fconf1 = (300, ), 0, 40, 20, 5, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinkster
-Cconf1 = (300, 75), 3, 3, 2, 100, 30, 10, 0.1, 0.0, 0.0, "Xent"
+Cconf1 = (300, 75), 3, 3, 2, 10, 30, 10, 0.1, 0.0, 0.0, "Xent"
 
 if __name__ == '__main__':
-    configuration(Cconf1)
+    Fbrain = Frun(learning_table, *Fconf1)
+    Cbrain = Crun(learning_table, *Cconf1)
+    savebrain(Fbrain, "FCFeedForwardBrain.bro")
+    savebrain(Cbrain, "ConvFeedForwardBrain.bro")
