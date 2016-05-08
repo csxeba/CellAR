@@ -6,9 +6,9 @@ from PIL import Image, ImageTk
 from stacksToTiles import pull_image
 from experiment import FFNetThinkster, CNNexplicit
 
-brainpath = "/data/Prog/Diploma/doc/Napló/Final100/ConvFeedForwardBrain.bro"
-# brainpath = "/data/Prog/Diploma/doc/Napló/Final100/FCFeedForwardBrain.bro"
-tifpath = "/data/Prog/Diploma/ProbaBemenet01.tif"
+# brainpath = "ConvFullTrained.bro"
+brainpath = "FCFeedForwardBrain.bro"
+tifpath = "/data/Prog/Diploma/ProbaBemenet03.tif"
 
 
 def inspect_run(blob, net):
@@ -76,10 +76,10 @@ def wake_ai(path):
     print("Artificial Intelligence is awakened.")
     network.describe(1)
 
-    tacc, lacc = network.evaluate(), network.evaluate("learning")
-    if isinstance(tacc, tuple):
-        tacc, lacc = tacc[1], lacc[1]
-    print("Network accuracy on T: {} L: {}".format(tacc, lacc))
+    # tacc, lacc = network.evaluate(), network.evaluate("learning")
+    # if isinstance(tacc, tuple):
+    #     tacc, lacc = tacc[1], lacc[1]
+    # print("Network accuracy on T: {} L: {}".format(tacc, lacc))
 
     return network
 
@@ -97,16 +97,29 @@ def count(blobs, network):
     return predictions
 
 
+def standardize(ar):
+    mean = ar.mean(axis=0)
+    std = ar.std(axis=0)
+    ar -= mean
+    ar /= std
+
 def main():
     brain = wake_ai(brainpath)
     tif = pull_image(tifpath, downscale=False)
+    standardize(tif)
     blobs = tif_to_blobs(tif)
     # inspect_run(blobs[0], brain)
     answers = count(blobs, brain)
     assert len(answers) == len(blobs)
+    logchain = ""
     for i in range(tif.shape[0]):
+        logchain += ("{}\t{}".format(i, answers[i]))
         print("Frame number {} contains {} floating cells.".format(i, answers[i]))
-    return
+    logfl = open("log.txt", "w")
+    logfl.write(logchain)
+    logfl.close()
 
 if __name__ == '__main__':
+    start = time.time()
     main()
+    print("Time required: {} s".format(int(time.time()-start)))

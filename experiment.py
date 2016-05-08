@@ -100,6 +100,7 @@ class FFNetThinkster(Network):
 def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture):
     print("Wrapping learning data...")
     myData = wrap_data(ltroot + lt, pca)
+    print("Testing pictures:", myData.n_testing)
 
     print("Building network...")
     net = network_class(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
@@ -133,6 +134,7 @@ def Frun(lt, hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actf
 def Crun(lt, hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn):
     print("Wrapping learning data...")
     myData = wrap_data(ltroot + lt, pca=0)
+    print("Testing pictures:", myData.n_testing)
 
     print("Building network...")
     net = CNNexplicit(myData, hiddens, conv, filters, pool, eta, lmbd1, lmbd2, 0.0, costfn)
@@ -252,9 +254,26 @@ def Cconfiguration(args):
     return logchain
 
 
-def final_training(args):
+def final_training(cargs, fargs):
 
-    data = wrap_data(learning_table, 0, 0)
+    print("Starting final training!")
+    print("Wrapping data...")
+    data = wrap_data(ltroot + learning_table, pca=0, cv=0)
+    hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn = cargs
+
+    print("Creating and training ConvNet...")
+    cnet = CNNexplicit(data, hiddens, conv, filters, pool, eta, lmbd1, lmbd2, 0.0, costfn)
+    cnet.train(epochs, batch_size)
+    cnet.save("ConvFullTrained.bro")
+
+    hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, actfn, costfn, architecture = fargs
+
+    print("Creating and training FFNet...")
+    fnet = FFNetThinkster(data, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
+    fnet.train(epochs, batch_size)
+    fnet.save("FFNetFullTrained.bro")
+
+    print("Finished!")
 
 
 def wrap_data(path_to_lt, pca, cv=crossval):
@@ -329,5 +348,5 @@ Cconf1 = (300, 75), 3, 3, 2, 10, 30, 10, 0.1, 0.0, 0.0, "Xent"
 if __name__ == '__main__':
     Fbrain = Frun(learning_table, *Fconf1)
     Cbrain = Crun(learning_table, *Cconf1)
-    savebrain(Fbrain, "FCFeedForwardBrain.bro")
-    savebrain(Cbrain, "ConvFeedForwardBrain.bro")
+    # savebrain(Fbrain, "FCFeedForwardBrain.bro")
+    # savebrain(Cbrain, "ConvFeedForwardBrain.bro")
