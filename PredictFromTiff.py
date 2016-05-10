@@ -103,6 +103,7 @@ def standardize(ar):
     ar -= mean
     ar /= std
 
+
 def main():
     brain = wake_ai(brainpath)
     tif = pull_image(tifpath, downscale=False)
