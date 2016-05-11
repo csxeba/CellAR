@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from csxnet.thNets.thANN_dev import ConvNetDynamic
+from csxnet.thNets.thANN import ConvNetDynamic
 from csxnet.datamodel import CData
 
 
