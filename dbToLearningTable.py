@@ -175,7 +175,7 @@ def fetchxsmall(dbs, processing):
 
 def generate_all():
     start = time.time()
-    prc = ["tiles", "ctr", "convd", "bgs"]
+    prc = ["tiles", "ctr", "bgs"]
     data = ["big", "small", "onezero", "xonezero"]
 
     for processing in prc:
@@ -195,6 +195,4 @@ def dump_lt(lt, flname):
 
 
 if __name__ == '__main__':
-    for prc in ("tiles", "ctr", "convd", "bgs"):
-        slt = fetchxsmall(os.listdir(dbspath), prc + "/")
-        dump_lt(slt, "xsmall_{}.pkl.gz".format(prc))
+    generate_all()
