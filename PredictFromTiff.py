@@ -8,7 +8,7 @@ from experiment import FFNetThinkster, CNNexplicit
 
 # brainpath = "ConvFullTrained.bro"
 brainpath = "FCFeedForwardBrain.bro"
-tifpath = "/data/Prog/Diploma/ProbaBemenet03.tif"
+tifpath = "/data/Prog/Diploma/ProbaBemenet01.tif"
 
 
 def inspect_run(blob, net):
@@ -102,6 +102,7 @@ def standardize(ar):
     std = ar.std(axis=0)
     ar -= mean
     ar /= std
+    pass
 
 
 def main():
