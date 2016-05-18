@@ -11,7 +11,7 @@ from csxnet.thNets.thANN import ConvNetExplicit
 
 
 dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
-ltroot = dataroot + "lts/"
+ltroot = dataroot + "learning_tables/"
 brainroot = dataroot + "brains/"
 
 
@@ -332,7 +332,7 @@ def configuration(*confs):
             Cconfiguration(args)
 
 network_class = FFNetThinkster
-learning_table = "xonezero_bgs.pkl.gz"
+learning_table = "onezero.pkl.gz"
 
 # Parameters for the neural network
 drop = 0.5  # Chance of dropout (if there are droplayers)
@@ -346,7 +346,7 @@ Fconf1 = (300, ), 0, 40, 20, 5, 0.03, 0.0, 0.0, 0.0, "tanh", "Xent", FFNetThinks
 Cconf1 = (300, 75), 3, 3, 2, 10, 30, 10, 0.1, 0.0, 0.0, "Xent"
 
 if __name__ == '__main__':
-    Fbrain = Frun(learning_table, *Fconf1)
+    # Fbrain = Frun(learning_table, *Fconf1)
     Cbrain = Crun(learning_table, *Cconf1)
     # savebrain(Fbrain, "FCFeedForwardBrain.bro")
     # savebrain(Cbrain, "ConvFeedForwardBrain.bro")
