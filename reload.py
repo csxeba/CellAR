@@ -1,12 +1,11 @@
 import pickle
-import sys
 
-dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
+from csxdata.const import roots
 
-brainroot = "brains/"
+brainroot = roots["brain"]
 brainpath = "76CNNexplicit.bro"
 
-ltroot = "learning_tables/"
+ltroot = roots["lt"]
 ltpath = "onezero.pkl"
 
 
@@ -18,5 +17,16 @@ def pull_brain(path):
     print("Score on testing:", brain.evaluate("testing")[1])
     return brain
 
+
+def pull_keras_brain(path):
+    import gzip
+    with gzip.open(path, "rb") as fl:
+        brain = pickle.load(fl)
+        fl.close()
+    print(brain.name, "has been awakened!")
+    brain.summary()
+    return brain
+
+
 if __name__ == '__main__':
-    brian = pull_brain(dataroot+brainroot+brainpath)
+    brian = pull_brain(brainroot+brainpath)

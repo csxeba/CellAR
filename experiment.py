@@ -1,18 +1,17 @@
 """Cell division detection with Artificial Neural Networks"""
-import sys
 import time
 import datetime
 
-from csxnet.datamodel import CData
-from csxnet.brainforge.Architecture.NNModel import Network
-from csxnet.brainforge.Utility.cost import Xent, MSE
-from csxnet.brainforge.Utility.activations import *
-from csxnet.thNets.thANN import ConvNetExplicit
+from csxdata.frames import CData
+from csxdata.const import roots
+from csxnet.model import Network
+from csxnet.brainforge.cost import Xent, MSE
+from csxnet.brainforge.activations import *
+from TheInterface.thmodel import ThNetDynamic
 
 
-dataroot = "D:/Data/" if sys.platform == "win32" else "/data/Prog/data/"
-ltroot = dataroot + "learning_tables/"
-brainroot = dataroot + "brains/"
+ltroot = roots["lt"]
+brainroot = roots["brains"]
 
 
 # Paramters for the data wrapper
@@ -22,17 +21,18 @@ reshape = True
 simplify_to_binary = True
 
 
-class CNNexplicit(ConvNetExplicit):
+class CNNexplicit(ThNetDynamic):
     def __init__(self, data, hiddens, conv, filters, pool, rate, l1, l2, momentum, costfn):
         cfshape = (conv, conv)
         hidden1, hidden2 = hiddens
         if not isinstance(costfn, str):
             costfn = str(costfn())
         costfn = "MSE" if costfn is MSE else "Xent"
-        ConvNetExplicit.__init__(self, data, rate, l1, l2,
-                                 filters, cfshape, pool,
-                                 hidden1, hidden2,
-                                 costfn)
+        ThNetDynamic.__init__(self, data, rate, l1, l2, momentum, cost=costfn)
+        self.add_convpool(cfshape, filters=filters, pool=pool)
+        self.add_fc(hidden1, activation="tanh")
+        self.add_fc(hidden2, activation="tanh")
+        self.finalize()
 
     def train(self, eps, bsize):
         if bsize == "full":
@@ -168,7 +168,7 @@ def Crun(lt, hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1,
 def FCconfiguration(args):
     assert len(args) == 12
     hiddens, pca, runs, epochs, batch_size, eta, lmbd1, lmbd2, mu, \
-    actfn, costfn, architecture = args
+        actfn, costfn, architecture = args
     scores = []
     now = datetime.datetime.now()
     logchain = "\n" + now.strftime("%Y.%m.%d. %H:%M") + "\n"
@@ -184,7 +184,7 @@ def FCconfiguration(args):
         logchain += "----------\nRun {}/{}\n".format(r, runs)
         start = time.time()
 
-        myData = wrap_data(ltroot + learning_table)
+        myData = wrap_data(ltroot + learning_table, pca)
         net = architecture(myData, hiddens, eta, lmbd1, lmbd2, mu, actfn, costfn)
         net.describe(1)
 
@@ -228,7 +228,7 @@ def Cconfiguration(args):
         logchain += "----------\nRun {}/{}\n".format(r, runs)
         start = time.time()
 
-        myData = wrap_data(ltroot + learning_table)
+        myData = wrap_data(ltroot + learning_table, pca=0)
         net = CNNexplicit(myData, hiddens, conv, pool, filters, eta, lmbd1, lmbd2, 0.0, costfn)
         net.describe(1)
 
@@ -290,14 +290,11 @@ def wrap_data(path_to_lt, pca, cv=crossval):
 
     lt = questions.astype(float), targets.astype(int)
 
-    myData = CData(lt, cross_val=cv, header=None, pca=pca)
     if reshape:
-        assert not pca, "Why would you reshape PCA transformed data?"
-        myData.data = myData.data.reshape(myData.N + myData.n_testing, 1, 60, 60)
-        myData.split_data()
-    if standardize:
-        assert not pca, "Why would you standardize PCA transformed data?"
-        myData.standardize()
+        from csxdata.utilities.nputils import ravel_to_matrix as rtm
+        lt = rtm(lt[0]), lt[1]
+
+    myData = CData(lt, cross_val=cv, standardize=standardize, pca=pca)
 
     return myData
 
@@ -332,7 +329,7 @@ def configuration(*confs):
             Cconfiguration(args)
 
 network_class = FFNetThinkster
-learning_table = "onezero.pkl.gz"
+learning_table = "xonezero_tiles.pkl.gz"
 
 # Parameters for the neural network
 drop = 0.5  # Chance of dropout (if there are droplayers)
