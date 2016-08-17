@@ -13,6 +13,9 @@ DATADIM = (1, 60, 60)
 
 
 class ArchitectureBase(Sequential):
+
+    name = ""
+
     def __init__(self, name):
         Sequential.__init__(self, name=name)
 
@@ -30,7 +33,7 @@ class ArchitectureBase(Sequential):
     @classmethod
     def load(cls):
         from reload import pull_keras_brain
-        return pull_keras_brain(roots["brain"] + cls.name)
+        return pull_keras_brain(roots["brain"] + cls.name + ".ker")
 
 
 class LeNet(ArchitectureBase):
@@ -56,12 +59,6 @@ class LeNet(ArchitectureBase):
         # (1x120)   = 120
         self.compile(optimizer=Adagrad(), loss="binary_crossentropy",
                      metrics=["accuracy"])
-
-    @classmethod
-    def load(cls):
-        from reload import pull_keras_brain
-
-        return pull_keras_brain(roots["brain"] + cls.name)
 
 
 class FullyConvolutional(ArchitectureBase):
@@ -92,6 +89,9 @@ def load_dataset(dataset, preparation, crossval=0.2):
     import pickle
     import gzip
 
+    if preparation is None:
+        preparation = "tiles"
+
     fl = gzip.open(roots["lt"] + dataset + "_" + preparation + ".pkl.gz")
     data = CData(pickle.load(fl), cross_val=crossval, header=False, standardize=True)
     return data
@@ -108,10 +108,27 @@ def run(dataset, preparation=None):
     net = LeNet()
     print("Initial cost: {} initial acc: {}".format(*net.evaluate(validation[0], validation[1], verbose=0)))
     net.fit(X, y, batch_size=20, nb_epoch=30, validation_data=validation)
+    net.save()
 
-    return net
 
+def from_loaded(dataset, preparation):
+    network = LeNet.load()
+    data = load_dataset(dataset, preparation)
+    print("Reloaded net performace monitoring!")
+    print("Cost: {}; Acc: {}".format(*network.evaluate(data.testing, data.tindeps, verbose=0)))
+    return network
+
+
+def prediction():
+    network = LeNet.load()
+    data = load_dataset("big", preparation=None, crossval=0.2)
+    X, y = data.learning, data.lindeps
+    np.greater_equal(y, 1, out=y)
+    where1 = np.argwhere(y)
+    X1 = X[where1.reshape(where1.shape[0])]
+    preds = network.predict(X1)
+
+    pass
 
 if __name__ == '__main__':
-    neural_network = run("xonezero", preparation="bgs")
-    neural_network.save()
+    prediction()
