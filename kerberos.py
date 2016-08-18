@@ -1,7 +1,6 @@
 import numpy as np
 
 from keras.models import Sequential
-from keras.layers import Input
 from keras.layers.core import Dense, Flatten
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
@@ -146,8 +145,12 @@ def prediction(architecture):
     where1 = np.argwhere(y)
     X1 = X[where1.reshape(where1.shape[0])]
     preds = network.predict(X1)
-
+    out = np.stack((preds, y)).T.tostring()
+    with open("logs/kerberos_preds.csv", "w") as fl:
+        fl.write(out)
+        fl.close()
     pass
 
 if __name__ == '__main__':
-    run(DenseNet, "xonezero", None)
+    prediction(LeNet)
+    print("Finite Incantatum!")
