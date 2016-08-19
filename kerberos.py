@@ -1,5 +1,3 @@
-import numpy as np
-
 from keras.models import Sequential
 from keras.layers.core import Dense, Flatten
 from keras.layers.convolutional import Convolution2D
@@ -106,34 +104,32 @@ def load_dataset(dataset, preparation, crossval=0.2):
     import pickle
     import gzip
 
-    if preparation is None:
-        preparation = "tiles"
+    preparation = "tiles" if preparation is None else preparation
 
     fl = gzip.open(roots["lt"] + dataset + "_" + preparation + ".pkl.gz")
     data = CData(pickle.load(fl), cross_val=crossval, header=False, standardize=True)
     return data
 
 
-def run(architecture, dataset, preparation=None):
-    if preparation is None:
-        preparation = "tiles"
+def run(architecture, dataset, preparation=None, rebuild=True):
     data = load_dataset(dataset, preparation)
     inshape, outputs = data.neurons_required
     X, y, validation = data.learning, data.lindeps, (data.testing, data.tindeps)
     print("Loaded data of shape:", inshape)
 
-    net = architecture()
+    net = architecture() if rebuild else from_loaded(architecture)
     net.summary()
     print("Initial cost: {} initial acc: {}".format(*net.evaluate(validation[0], validation[1], verbose=0)))
     net.fit(X, y, batch_size=20, nb_epoch=30, validation_data=validation, shuffle=True)
     net.save2()
 
 
-def from_loaded(architecture, dataset, preparation):
+def from_loaded(architecture, monitor_dataset=None, monitor_data_preparation=None):
     network = architecture.load()
-    data = load_dataset(dataset, preparation)
-    print("Reloaded net performace monitoring!")
-    print("Cost: {}; Acc: {}".format(*network.evaluate(data.testing, data.tindeps, verbose=0)))
+    if monitor_dataset is not None:
+        data = load_dataset(monitor_dataset, monitor_data_preparation)
+        print("Reloaded net performace monitoring!")
+        print("Cost: {}; Acc: {}".format(*network.evaluate(data.testing, data.tindeps, verbose=0)))
     return network
 
 
@@ -143,13 +139,19 @@ def prediction(architecture):
     X, y = data.learning, data.lindeps
     np.greater_equal(y, 1, out=y)
     where1 = np.argwhere(y)
+    where0 = np.argwhere(np.logical_not(y))
     X1 = X[where1.reshape(where1.shape[0])]
-    preds = network.predict(X1)
-    out = np.stack((preds, y)).T.tostring()
-    with open("logs/kerberos_preds.csv", "w") as fl:
-        fl.write(out)
-        fl.close()
-    pass
+    X0 = X[where0.reshape(where0.shape[0])]
+    preds1 = network.predict(X1)
+    pr1_YES = np.sum(np.greater(preds1, 0.5))
+    preds0 = network.predict(X0)
+    pr0_NO = np.sum(np.less(preds0, 0.5))
+
+    print("ALL: {};\nYES: {}; RATE: {}\nNO: {}; RATE: {}"
+          .format(preds1.shape[0] + preds0.shape[0],
+                  pr1_YES, pr1_YES / preds1.shape[0],
+                  pr0_NO, pr0_NO / preds0.shape[0]))
+
 
 if __name__ == '__main__':
     prediction(LeNet)
