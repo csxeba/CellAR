@@ -12,6 +12,9 @@ from csxdata.const import roots
 DATADIM = (1, 60, 60)
 
 
+costfn = SGD(lr=0.01)
+
+
 class ArchitectureBase(Sequential):
 
     name = ""
@@ -53,11 +56,11 @@ class LeNet(ArchitectureBase):
         self.add(MaxPooling2D())
         # (7, 10, 10)  = 700
         self.add(Flatten())
-        self.add(Dense(120, activation="sigmoid"))
+        self.add(Dense(120, activation="relu"))
         # (700x120) = 84 000
         self.add(Dense(1, activation="sigmoid"))
         # (1x120)   = 120
-        self.compile(optimizer=Adagrad(), loss="binary_crossentropy",
+        self.compile(optimizer=costfn, loss="binary_crossentropy",
                      metrics=["accuracy"])
 
 
@@ -73,7 +76,7 @@ class DenseNet(ArchitectureBase):
         for h in hiddens:
             self.add(Dense(h, activation="relu"))
         self.add(Dense(1, activation="sigmoid"))
-        self.compile(Adagrad(), loss="binary_crossentropy", metrics=["accuracy"])
+        self.compile(costfn, loss="binary_crossentropy", metrics=["accuracy"])
 
 
 class FullyConvolutional(ArchitectureBase):
@@ -94,20 +97,22 @@ class FullyConvolutional(ArchitectureBase):
         # (7, 5, 5)  = 175
         self.add(Flatten())
         self.add(Dense(1, activation="relu"))
-        self.compile(optimizer=SGD(lr=0.01, momentum=0.9), loss="binary_crossentropy",
+        self.compile(optimizer=costfn, loss="binary_crossentropy",
                      metrics=["accuracy"])
         # Best score so far: 83% (L) -- 71% (T)
 
 
 def load_dataset(dataset, preparation, crossval=0.2):
     from csxdata.frames import CData
-    import pickle
-    import gzip
 
     preparation = "tiles" if preparation is None else preparation
 
-    fl = gzip.open(roots["lt"] + dataset + "_" + preparation + ".pkl.gz")
-    data = CData(pickle.load(fl), cross_val=crossval, header=False, standardize=True)
+    data = CData(roots["lt"] + dataset + "_" + preparation + ".pkl.gz",
+                 cross_val=crossval, header=False, standardize=True)
+    data.indeps = np.greater(data.indeps, 0).astype(int)
+    data.categories = list(set(data.indeps))
+    data.reset_data()
+    print("{} categories: {}".format(dataset, data.categories))
     return data
 
 
@@ -121,6 +126,38 @@ def run(architecture, dataset, preparation=None, rebuild=True):
     net.summary()
     print("Initial cost: {} initial acc: {}".format(*net.evaluate(validation[0], validation[1], verbose=0)))
     net.fit(X, y, batch_size=20, nb_epoch=30, validation_data=validation, shuffle=True)
+    net.save2()
+
+
+def pretrained(architecture, rebuild=True):
+
+    def build_and_pretrain_on_xonezero():
+        xonezero = load_dataset("xonezero", None)
+        pX, pY, pValid = xonezero.learning, xonezero.lindeps, (xonezero.testing, xonezero.tindeps)
+        print("Initial cost: {} initial acc: {}".format(*net.evaluate(pValid[0], pValid[1], verbose=0)))
+        net.fit(pX, pY, batch_size=100, nb_epoch=30, validation_data=pValid, shuffle=True)
+
+    def weighted_train_on_big_dataset():
+        data = load_dataset("big", None)
+        X, y, validation = data.learning, data.lindeps, (data.testing, data.tindeps)
+        w = data.sample_weights
+        print("Initial cost: {} initial acc: {}"
+              .format(*net.evaluate(validation[0], validation[1], verbose=0)))
+        print("Percent of zeros to ones in learning: {}%"
+              .format(100 - ((round(y.sum() / y.shape[0], 4))*100)))
+        print("Percent of zeros to ones in testing: {}%"
+              .format(100 - ((round(data.tindeps.sum() / data.tindeps.shape[0], 4))*100)))
+
+        net.fit(X, y, batch_size=100, nb_epoch=30, validation_data=validation, shuffle=True,
+                sample_weight=w)
+
+    net = architecture() if rebuild else from_loaded(architecture)
+    net.summary()
+
+    build_and_pretrain_on_xonezero()
+
+    weighted_train_on_big_dataset()
+
     net.save2()
 
 
@@ -154,5 +191,5 @@ def prediction(architecture):
 
 
 if __name__ == '__main__':
-    prediction(LeNet)
+    pretrained(LeNet)
     print("Finite Incantatum!")
