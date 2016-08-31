@@ -1,6 +1,6 @@
 import pickle
 
-from csxdata.const import roots
+from csxdata import roots
 
 brainroot = roots["brain"]
 brainpath = "76CNNexplicit.bro"

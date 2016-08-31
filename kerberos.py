@@ -1,18 +1,21 @@
+import numpy as np
+
 from keras.models import Sequential
-from keras.layers.core import Dense, Flatten
+from keras.layers.core import Dense, Flatten, Dropout
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import *
 
-from csxdata.const import roots
+from csxdata import roots
 
 # configuration: hiddens, conv, filters, pool, runs, epochs, batch_size, eta, lmbd1, lmbd2, costfn
 # Cconf1 = (300, 75),       3,      3,      2,  10,     30,     10,      0.1,   0.0,   0.0,  "Xent"
+from keras.regularizers import WeightRegularizer
 
 DATADIM = (1, 60, 60)
 
 
-costfn = SGD(lr=0.01)
+costfn = SGD(lr=0.01, momentum=0.9, nesterov=True)
 
 
 class ArchitectureBase(Sequential):
@@ -56,11 +59,11 @@ class LeNet(ArchitectureBase):
         self.add(MaxPooling2D())
         # (7, 10, 10)  = 700
         self.add(Flatten())
-        self.add(Dense(120, activation="relu"))
+        self.add(Dense(120, activation="tanh", W_regularizer=WeightRegularizer(0.0, 2.0)))
         # (700x120) = 84 000
-        self.add(Dense(1, activation="sigmoid"))
-        # (1x120)   = 120
-        self.compile(optimizer=costfn, loss="binary_crossentropy",
+        self.add(Dense(2, activation="softmax"))
+        # (2x120)   = 240
+        self.compile(optimizer=costfn, loss="categorical_crossentropy",
                      metrics=["accuracy"])
 
 
@@ -108,10 +111,11 @@ def load_dataset(dataset, preparation, crossval=0.2):
     preparation = "tiles" if preparation is None else preparation
 
     data = CData(roots["lt"] + dataset + "_" + preparation + ".pkl.gz",
-                 cross_val=crossval, header=False, standardize=True)
+                 cross_val=crossval, header=False)
     data.indeps = np.greater(data.indeps, 0).astype(int)
     data.categories = list(set(data.indeps))
     data.reset_data()
+    data.transformation = "std"
     print("{} categories: {}".format(dataset, data.categories))
     return data
 
@@ -125,38 +129,39 @@ def run(architecture, dataset, preparation=None, rebuild=True):
     net = architecture() if rebuild else from_loaded(architecture)
     net.summary()
     print("Initial cost: {} initial acc: {}".format(*net.evaluate(validation[0], validation[1], verbose=0)))
-    net.fit(X, y, batch_size=20, nb_epoch=30, validation_data=validation, shuffle=True)
+    # net.fit(X, y, batch_size=20, nb_epoch=30, validation_data=validation, shuffle=True)
+    net.fit_generator(data.batchgen(20, infinite=True), data.N*100, nb=10, validation_data=validation)
     net.save2()
 
 
 def pretrained(architecture, rebuild=True):
 
-    def build_and_pretrain_on_xonezero():
+    def pretrain_on_xonezero():
         xonezero = load_dataset("xonezero", None)
-        pX, pY, pValid = xonezero.learning, xonezero.lindeps, (xonezero.testing, xonezero.tindeps)
+        pValid = xonezero.table("testing")
         print("Initial cost: {} initial acc: {}".format(*net.evaluate(pValid[0], pValid[1], verbose=0)))
-        net.fit(pX, pY, batch_size=100, nb_epoch=30, validation_data=pValid, shuffle=True)
+        # net.fit(pX, pY, batch_size=100, nb_epoch=30, validation_data=pValid, shuffle=True)
+        net.fit_generator(xonezero.batchgen(100, infinite=True), xonezero.N*5, nb_epoch=2, validation_data=pValid)
 
-    def weighted_train_on_big_dataset():
+    def train_on_big_dataset():
         data = load_dataset("big", None)
-        X, y, validation = data.learning, data.lindeps, (data.testing, data.tindeps)
-        w = data.sample_weights
+        validation = data.table("testing")
         print("Initial cost: {} initial acc: {}"
               .format(*net.evaluate(validation[0], validation[1], verbose=0)))
-        print("Percent of zeros to ones in learning: {}%"
-              .format(100 - ((round(y.sum() / y.shape[0], 4))*100)))
-        print("Percent of zeros to ones in testing: {}%"
-              .format(100 - ((round(data.tindeps.sum() / data.tindeps.shape[0], 4))*100)))
+        print("Percent of zeros in learning: {}%"
+              .format(round((1 - data.lindeps.sum() / data.N)*100, 3)))
+        print("Percent of zeros in testing: {}%"
+              .format(round((1 - data.tindeps.sum() / data.N) * 100, 3)))
 
-        net.fit(X, y, batch_size=100, nb_epoch=30, validation_data=validation, shuffle=True,
-                sample_weight=w)
+        # net.fit(X, y, batch_size=100, nb_epoch=30, validation_data=validation, shuffle=True,
+        #         sample_weight=w)
+        net.fit_generator(data.batchgen(100, infinite=True), data.N*10, nb_epoch=5, validation_data=validation)
 
     net = architecture() if rebuild else from_loaded(architecture)
     net.summary()
 
-    build_and_pretrain_on_xonezero()
-
-    weighted_train_on_big_dataset()
+    pretrain_on_xonezero()
+    train_on_big_dataset()
 
     net.save2()
 
@@ -180,11 +185,11 @@ def prediction(architecture):
     X1 = X[where1.reshape(where1.shape[0])]
     X0 = X[where0.reshape(where0.shape[0])]
     preds1 = network.predict(X1)
-    pr1_YES = np.sum(np.greater(preds1, 0.5))
+    pr1_YES = np.sum(np.greater(preds1[:, 1], 0.5))
     preds0 = network.predict(X0)
-    pr0_NO = np.sum(np.less(preds0, 0.5))
+    pr0_NO = np.sum(np.greater(preds0[:, 0], 0.5))
 
-    print("ALL: {};\nYES: {}; RATE: {}\nNO: {}; RATE: {}"
+    print("ALL: {};\nYES: {}; RATE: {}\nNO:  {}; RATE: {}"
           .format(preds1.shape[0] + preds0.shape[0],
                   pr1_YES, pr1_YES / preds1.shape[0],
                   pr0_NO, pr0_NO / preds0.shape[0]))
